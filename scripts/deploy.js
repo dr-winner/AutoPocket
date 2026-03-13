@@ -3,8 +3,12 @@ const hre = require("hardhat");
 async function main() {
   console.log("Deploying AutoPocketAgent to", hre.network.name, "...");
   
+  const [signer] = await hre.ethers.getSigners();
+  console.log("Deploying from:", signer.address);
+  
+  // ethers v6 API
   const AutoPocketAgent = await hre.ethers.getContractFactory("AutoPocketAgent");
-  const agent = await AutoPocketAgent.deploy();
+  const agent = await AutoPocketAgent.connect(signer).deploy();
   
   await agent.waitForDeployment();
   const address = await agent.getAddress();

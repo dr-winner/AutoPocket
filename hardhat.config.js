@@ -7,8 +7,8 @@ module.exports = {
   networks: {
     alfajores: {
       url: "https://alfajores.gateway.tatum.io",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 44787,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     celo: {
       url: "https://forno.celo.org",
