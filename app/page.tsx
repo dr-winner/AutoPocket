@@ -126,10 +126,14 @@ const AGENT_ABI = [
 
 // Celo USD address (Alfajores testnet)
 const CUSD_ADDRESS = '0x765de816845861e75A25fCA122bb6898B8B1272a';
-const AGENT_ADDRESS = '0x...'; // Will be set after deployment
 
-// Demo agent address (replace after deploy)
-const DEMO_AGENT = '0x742d35Cc6634C0532925a3b844Bc9e7595f0fE00';
+// Agent deployment state - set to deployed agent address after deployment
+// For now, set to null to show "Coming Soon" state
+const AGENT_ADDRESS = null as `0x${string}` | null;
+
+// Placeholder shown when agent is not yet deployed
+const UNDEPLOYED_MESSAGE = 'Agent not yet deployed';
+const DEPLOY_GUIDE_URL = '#deploy';
 
 export default function Home() {
   const { isConnected, address } = useAccount();
@@ -143,58 +147,68 @@ export default function Home() {
   const { data: hash, writeContract: write, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // Read contract data
+  // Agent deployment state
+  const isAgentDeployed = AGENT_ADDRESS !== null;
+  const agentAddress = AGENT_ADDRESS;
+
+  // Read contract data - only when agent is deployed
   const { data: isActive } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'isActive',
+    query: { enabled: isAgentDeployed }
   });
 
   const { data: totalSavings } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'totalSavings',
+    query: { enabled: isAgentDeployed }
   });
 
   const { data: totalBillsPaid } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'totalBillsPaid',
+    query: { enabled: isAgentDeployed }
   });
 
   const { data: actionCount } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'actionCount',
+    query: { enabled: isAgentDeployed }
   });
 
   const { data: agentName } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'agentName',
+    query: { enabled: isAgentDeployed }
   });
 
   const { data: userSavings } = useReadContract({
-    address: DEMO_AGENT,
+    address: agentAddress ?? undefined,
     abi: AGENT_ABI,
     functionName: 'getUserSavings',
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
+    query: { enabled: isAgentDeployed && !!address }
   });
 
   const registerUser = async () => {
+    if (!isAgentDeployed || !agentAddress) return;
     write({
-      address: DEMO_AGENT,
+      address: agentAddress,
       abi: AGENT_ABI,
       functionName: 'registerUser',
     });
   };
 
   const deposit = async () => {
-    if (!depositAmount) return;
+    if (!isAgentDeployed || !agentAddress || !depositAmount) return;
     const amountWei = ethers.parseEther(depositAmount).div(1e12).toString(); // Convert to cUSD (6 decimals)
     write({
-      address: DEMO_AGENT,
+      address: agentAddress,
       abi: AGENT_ABI,
       functionName: 'depositSavings',
       args: [BigInt(amountWei)],
@@ -202,10 +216,10 @@ export default function Home() {
   };
 
   const withdraw = async () => {
-    if (!depositAmount) return;
+    if (!isAgentDeployed || !agentAddress || !depositAmount) return;
     const amountWei = ethers.parseEther(depositAmount).div(1e12).toString();
     write({
-      address: DEMO_AGENT,
+      address: agentAddress,
       abi: AGENT_ABI,
       functionName: 'withdrawSavings',
       args: [BigInt(amountWei)],
@@ -213,14 +227,14 @@ export default function Home() {
   };
 
   const createBill = async () => {
-    if (!billRecipient || !billAmount || !billDescription) return;
+    if (!isAgentDeployed || !agentAddress || !billRecipient || !billAmount || !billDescription) return;
     const billId = ethers.id('bill_' + Date.now());
     const amountWei = ethers.parseEther(billAmount).div(1e12).toString();
     // Monthly = 30 days
     const frequency = (30 * 24 * 60 * 60).toString();
     
     write({
-      address: DEMO_AGENT,
+      address: agentAddress,
       abi: AGENT_ABI,
       functionName: 'createBill',
       args: [billId, billRecipient, BigInt(amountWei), BigInt(frequency), billDescription],
@@ -244,6 +258,28 @@ export default function Home() {
           <ConnectButton />
         </div>
       </header>
+
+      {/* Coming Soon Banner - Show when agent is not deployed */}
+      {!isAgentDeployed && (
+        <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-b border-amber-500/30">
+          <div className="max-w-6xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-center gap-3">
+              <Clock className="w-5 h-5 text-amber-400" />
+              <span className="text-amber-200 font-medium">
+                🚀 Agent Coming Soon — Deploy to Alfajores testnet to activate
+              </span>
+              <a 
+                href="https://github.com/your-repo/autopocket#deployment" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-amber-300 hover:text-amber-200 underline text-sm"
+              >
+                View Deployment Guide →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
@@ -269,13 +305,24 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4">
-            {isConnected && (
+            {isConnected && isAgentDeployed && (
               <button
                 onClick={registerUser}
                 className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-black font-bold transition-all hover:scale-105"
               >
                 Get Started
               </button>
+            )}
+            {isConnected && !isAgentDeployed && (
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  onClick={() => window.open('https://github.com/your-repo/autopocket#deployment', '_blank')}
+                  className="px-8 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold transition-all hover:scale-105"
+                >
+                  Deploy to Testnet
+                </button>
+                <p className="text-sm text-gray-400">Deploy the agent contract to activate your AI savings</p>
+              </div>
             )}
           </div>
         </div>
@@ -285,45 +332,66 @@ export default function Home() {
       {isConnected && (
         <section className="px-4 pb-12">
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-4">
-              <div className="glass rounded-2xl p-6 text-center">
-                <PiggyBank className="w-8 h-8 mx-auto mb-2 text-green-400" />
-                <p className="text-3xl font-bold text-white">
-                  ${totalSavings ? (Number(totalSavings) / 1e6).toFixed(0) : '0'}
+            {/* Show deploy CTA when agent not deployed */}
+            {!isAgentDeployed ? (
+              <div className="glass rounded-2xl p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <Wallet className="w-8 h-8 text-amber-400" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Deploy to Testnet</h3>
+                <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                  Your AutoPocket agent isn't deployed yet. Deploy to Alfajores testnet to start saving with AI.
                 </p>
-                <p className="text-gray-400 text-sm">Total Saved</p>
+                <button
+                  onClick={() => window.open('https://github.com/your-repo/autopocket#deployment', '_blank')}
+                  className="px-8 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold transition-all hover:scale-105 inline-flex items-center gap-2"
+                >
+                  <Zap className="w-5 h-5" />
+                  Deploy to Alfajores
+                </button>
               </div>
-              
-              <div className="glass rounded-2xl p-6 text-center">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-purple-400" />
-                <p className="text-3xl font-bold text-white">
-                  {totalBillsPaid ? Number(totalBillsPaid) : '0'}
-                </p>
-                <p className="text-gray-400 text-sm">Bills Paid</p>
+            ) : (
+              /* Show actual stats when agent is deployed */
+              <div className="grid md:grid-cols-4 gap-4">
+                <div className="glass rounded-2xl p-6 text-center">
+                  <PiggyBank className="w-8 h-8 mx-auto mb-2 text-green-400" />
+                  <p className="text-3xl font-bold text-white">
+                    ${totalSavings ? (Number(totalSavings) / 1e6).toFixed(0) : '0'}
+                  </p>
+                  <p className="text-gray-400 text-sm">Total Saved</p>
+                </div>
+                
+                <div className="glass rounded-2xl p-6 text-center">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-purple-400" />
+                  <p className="text-3xl font-bold text-white">
+                    {totalBillsPaid ? Number(totalBillsPaid) : '0'}
+                  </p>
+                  <p className="text-gray-400 text-sm">Bills Paid</p>
+                </div>
+                
+                <div className="glass rounded-2xl p-6 text-center">
+                  <Zap className="w-8 h-8 mx-auto mb-2 text-yellow-400" />
+                  <p className="text-3xl font-bold text-white">
+                    {actionCount ? Number(actionCount) : '0'}
+                  </p>
+                  <p className="text-gray-400 text-sm">Actions</p>
+                </div>
+                
+                <div className="glass rounded-2xl p-6 text-center">
+                  <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                  <p className="text-3xl font-bold text-white">
+                    {userSavings ? (Number(userSavings[1]) / 1e6).toFixed(2) : '0.00'}
+                  </p>
+                  <p className="text-gray-400 text-sm">Your Savings</p>
+                </div>
               </div>
-              
-              <div className="glass rounded-2xl p-6 text-center">
-                <Zap className="w-8 h-8 mx-auto mb-2 text-yellow-400" />
-                <p className="text-3xl font-bold text-white">
-                  {actionCount ? Number(actionCount) : '0'}
-                </p>
-                <p className="text-gray-400 text-sm">Actions</p>
-              </div>
-              
-              <div className="glass rounded-2xl p-6 text-center">
-                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-400" />
-                <p className="text-3xl font-bold text-white">
-                  {userSavings ? (Number(userSavings[1]) / 1e6).toFixed(2) : '0.00'}
-                </p>
-                <p className="text-gray-400 text-sm">Your Savings</p>
-              </div>
-            </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* Actions Section */}
-      {isConnected && (
+      {/* Actions Section - Only show when agent is deployed */}
+      {isConnected && isAgentDeployed && (
         <section className="px-4 pb-20">
           <div className="max-w-4xl mx-auto">
             <div className="glass rounded-2xl p-8">
