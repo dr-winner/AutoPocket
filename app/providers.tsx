@@ -10,6 +10,8 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
 
 const config = getDefaultConfig({
+  appName: 'AutoPocket',
+  projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // Get free ID at https://cloud.walletconnect.com
   chains: [celoAlfajores, celo],
   transports: {
     [celoAlfajores.id]: http(),

@@ -206,7 +206,7 @@ export default function Home() {
 
   const deposit = async () => {
     if (!isAgentDeployed || !agentAddress || !depositAmount) return;
-    const amountWei = ethers.parseEther(depositAmount).div(1e12).toString(); // Convert to cUSD (6 decimals)
+    const amountWei = (BigInt(ethers.parseEther(depositAmount).toString()) / BigInt(1e12)).toString(); // Convert to cUSD (6 decimals)
     write({
       address: agentAddress,
       abi: AGENT_ABI,
@@ -217,7 +217,7 @@ export default function Home() {
 
   const withdraw = async () => {
     if (!isAgentDeployed || !agentAddress || !depositAmount) return;
-    const amountWei = ethers.parseEther(depositAmount).div(1e12).toString();
+    const amountWei = (BigInt(ethers.parseEther(depositAmount).toString()) / BigInt(1e12)).toString();
     write({
       address: agentAddress,
       abi: AGENT_ABI,
@@ -229,7 +229,7 @@ export default function Home() {
   const createBill = async () => {
     if (!isAgentDeployed || !agentAddress || !billRecipient || !billAmount || !billDescription) return;
     const billId = ethers.id('bill_' + Date.now());
-    const amountWei = ethers.parseEther(billAmount).div(1e12).toString();
+    const amountWei = (BigInt(ethers.parseEther(billAmount).toString()) / BigInt(1e12)).toString();
     // Monthly = 30 days
     const frequency = (30 * 24 * 60 * 60).toString();
     
@@ -380,7 +380,7 @@ export default function Home() {
                 <div className="glass rounded-2xl p-6 text-center">
                   <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-400" />
                   <p className="text-3xl font-bold text-white">
-                    {userSavings ? (Number(userSavings[1]) / 1e6).toFixed(2) : '0.00'}
+                    {userSavings ? (Number((userSavings as bigint[])[1]) / 1e6).toFixed(2) : '0.00'}
                   </p>
                   <p className="text-gray-400 text-sm">Your Savings</p>
                 </div>
