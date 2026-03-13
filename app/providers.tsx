@@ -11,7 +11,7 @@ import { useState } from 'react';
 
 const config = getDefaultConfig({
   appName: 'AutoPocket',
-  projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // Get free ID at https://cloud.walletconnect.com
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
   chains: [celoAlfajores, celo],
   transports: {
     [celoAlfajores.id]: http(),
