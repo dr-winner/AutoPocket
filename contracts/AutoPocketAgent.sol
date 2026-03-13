@@ -33,7 +33,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * - Supporting payment settlement via ERC-20 tokens
  * 
  * @author AutoPocket Team
- * @version 2.0.0
+ * @custom:version 2.0.0
  */
 contract AutoPocketAgent is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -104,10 +104,10 @@ contract AutoPocketAgent is Ownable, ReentrancyGuard {
 
     // Stablecoin addresses (Celo)
     /// @notice cUSD token address on Celo mainnet
-    address public constant CUSD = 0x765de816845861e75A25fCA122bb6898B8B1272a;
+    address public constant CUSD = 0x765DE816845861E75A25FcA122bb6898b8b1272a;
     
     /// @notice CELO native token address on Celo mainnet
-    address public constant CELO = 0x471EcE3750Da237f93B8E339c536988bC5DEb0b4;
+    address public constant CELO = 0x471eCE3750Da237f93B8E339C536988Bc5deB0B4;
 
     // x402 Protocol State
     /// @notice Total payments received for API services (x402)
