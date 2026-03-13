@@ -1,21 +1,22 @@
 'use client';
 
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, createConfig, http, fallback } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiConfig } from 'wagmi';
 import { celo, celoAlfajores } from 'wagmi/chains';
-import { http, createConfig } from 'wagmi';
-import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
 
-const config = getDefaultConfig({
-  appName: 'AutoPocket',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
+const config = createConfig({
   chains: [celoAlfajores, celo],
   transports: {
-    [celoAlfajores.id]: http(),
-    [celo.id]: http(),
+    [celoAlfajores.id]: fallback([
+      http('https://celo-sepolia.rpc.thirdweb.com'),
+      http('https://forno.celo.org'),
+    ]),
+    [celo.id]: fallback([
+      http('https://forno.celo.org'),
+    ]),
   },
   ssr: false,
 });
