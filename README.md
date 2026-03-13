@@ -73,8 +73,8 @@ autopocket/
 
 ## 👤 Author
 
-- Twitter: @dr_winner
-- GitHub: Ghana-Work
+- Twitter: @dr_winner6
+- GitHub: dr-winner  
 
 ## 📄 License
 
