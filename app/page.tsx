@@ -279,8 +279,8 @@ export default function Home() {
   };
 
   // Format cUSD amount from contract (6 decimals)
-  const formatCUSD = (value: bigint | undefined) => {
-    if (!value) return '0.00';
+  const formatCUSD = (value: bigint | undefined | unknown) => {
+    if (!value || typeof value !== "bigint") return '0.00';
     return ethers.formatUnits(value, CUSD_DECIMALS);
   };
 
