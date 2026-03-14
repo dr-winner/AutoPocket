@@ -500,7 +500,7 @@ export default function Home() {
                     <Wallet className="w-5 h-5 text-blue-400" />
                     <span className="text-gray-400 text-sm">Your Balance</span>
                   </div>
-                  <p className="text-3xl font-bold">${formatCUSD(userSavings?.[1])}</p>
+                  <p className="text-3xl font-bold">${formatCUSD((userSavings as bigint[])?.[1])}</p>
                 </div>
               </div>
 
