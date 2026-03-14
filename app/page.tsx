@@ -570,7 +570,7 @@ export default function Home() {
                   {reputationScore && (
                     <div className="flex items-center gap-2">
                       <Star className="w-5 h-5 text-yellow-400" />
-                      <span>Reputation: {reputationScore.toString()}/100</span>
+                      <span>Reputation: {String(reputationScore)}/100</span>
                     </div>
                   )}
                 </div>
