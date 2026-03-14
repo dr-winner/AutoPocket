@@ -5,20 +5,13 @@ require("dotenv").config();
 module.exports = {
   solidity: "0.8.20",
   networks: {
+    hardhat: {
+      chainId: 44787,
+    },
     alfajores: {
-      url: "https://alfajores-forno.celo-testnet.org",
+      url: "https://1rpc.io/celo-alfajores",
       chainId: 44787,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    },
-    celoSepolia: {
-      url: "https://celo-sepoliarpc.testnetops.io",
-      chainId: 447869,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    },
-    celo: {
-      url: "https://forno.celo.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 42220,
     },
   },
 };

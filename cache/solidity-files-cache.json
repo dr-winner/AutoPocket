@@ -43,7 +43,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1773383424908,
+      "lastModificationDate": 1773513093878,
       "contentHash": "9261adf6457863de3e9892f51317ec89",
       "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
@@ -79,7 +79,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
-      "lastModificationDate": 1773383424935,
+      "lastModificationDate": 1773513096492,
       "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
       "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
       "solcConfig": {
@@ -117,7 +117,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol": {
-      "lastModificationDate": 1773383424938,
+      "lastModificationDate": 1773513096869,
       "contentHash": "6e5efb502dd6652d12ad15eea2c5bdf4",
       "sourceName": "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
       "solcConfig": {
@@ -155,7 +155,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
-      "lastModificationDate": 1773383424940,
+      "lastModificationDate": 1773513097014,
       "contentHash": "bf8e9c3398d381dc66c5302267927386",
       "sourceName": "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
       "solcConfig": {
@@ -194,7 +194,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1773383424650,
+      "lastModificationDate": 1773513088190,
       "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
@@ -230,7 +230,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
-      "lastModificationDate": 1773383424944,
+      "lastModificationDate": 1773513097861,
       "contentHash": "e656d64c4ce918f3d13030b91c935134",
       "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
       "solcConfig": {
@@ -266,7 +266,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/interfaces/IERC1363.sol": {
-      "lastModificationDate": 1773383424896,
+      "lastModificationDate": 1773513093580,
       "contentHash": "a7fd0f05e36b0d0a21c75340c9c639ec",
       "sourceName": "@openzeppelin/contracts/interfaces/IERC1363.sol",
       "solcConfig": {
@@ -305,7 +305,7 @@
       ]
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/interfaces/IERC20.sol": {
-      "lastModificationDate": 1773383424906,
+      "lastModificationDate": 1773513093844,
       "contentHash": "68620db2da7583d9a4919096ac77f577",
       "sourceName": "@openzeppelin/contracts/interfaces/IERC20.sol",
       "solcConfig": {
@@ -341,7 +341,7 @@
       "artifacts": []
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/interfaces/IERC165.sol": {
-      "lastModificationDate": 1773383424901,
+      "lastModificationDate": 1773513093657,
       "contentHash": "947853028399b7de34bcc3704ee06e99",
       "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
       "solcConfig": {
@@ -377,7 +377,7 @@
       "artifacts": []
     },
     "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
-      "lastModificationDate": 1773383424901,
+      "lastModificationDate": 1773513093708,
       "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
       "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
       "solcConfig": {
@@ -410,6 +410,86 @@
       ],
       "artifacts": [
         "IERC165"
+      ]
+    },
+    "/home/haq/.openclaw/workspace/autopocket/contracts/AutoPocketAgentV2.sol": {
+      "lastModificationDate": 1773513844696,
+      "contentHash": "6e052ef175feb67fedd59d58aeed4239",
+      "sourceName": "contracts/AutoPocketAgentV2.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "AutoPocketAgentV2"
+      ]
+    },
+    "/home/haq/.openclaw/workspace/autopocket/node_modules/@openzeppelin/contracts/utils/Pausable.sol": {
+      "lastModificationDate": 1773513096776,
+      "contentHash": "0d47b53e10b1985efbb396f937626279",
+      "sourceName": "@openzeppelin/contracts/utils/Pausable.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Pausable"
       ]
     }
   }
