@@ -567,7 +567,7 @@ export default function Home() {
                       <p className="text-sm text-gray-400">ERC-8004 • {agentAddress.slice(0, 6)}...{agentAddress.slice(-4)}</p>
                     </div>
                   </div>
-                  {reputationScore && (
+                  {reputationScore !== undefined && reputationScore !== null && (
                     <div className="flex items-center gap-2">
                       <Star className="w-5 h-5 text-yellow-400" />
                       <span>Reputation: {String(reputationScore)}/100</span>
