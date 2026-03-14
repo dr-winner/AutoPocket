@@ -15,8 +15,6 @@ import {
   ArrowDownCircle,
   Clock,
   CheckCircle,
-  Plus,
-  X,
   DollarSign,
   Target,
   Activity,
@@ -25,11 +23,17 @@ import {
   Globe,
   ArrowRight,
   Star,
-  ChevronDown
+  ChevronDown,
+  RefreshCw,
+  Send,
+  Plus,
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 
-// AutoPocket Agent ABI
+// AutoPocket Agent ABI - Full interface
 const AGENT_ABI = [
+  // User registration
   {
     inputs: [],
     name: 'registerUser',
@@ -37,6 +41,7 @@ const AGENT_ABI = [
     stateMutability: 'nonpayable',
     type: 'function'
   },
+  // Savings
   {
     inputs: [{ name: '_amount', type: 'uint256' }],
     name: 'depositSavings',
@@ -51,6 +56,7 @@ const AGENT_ABI = [
     stateMutability: 'nonpayable',
     type: 'function'
   },
+  // Bills
   {
     inputs: [
       { name: '_billId', type: 'bytes32' },
@@ -71,6 +77,7 @@ const AGENT_ABI = [
     stateMutability: 'nonpayable',
     type: 'function'
   },
+  // Read functions
   {
     inputs: [],
     name: 'isActive',
@@ -110,9 +117,11 @@ const AGENT_ABI = [
     inputs: [{ name: '_user', type: 'address' }],
     name: 'getUserSavings',
     outputs: [
-      { name: 'total', type: 'uint256' },
-      { name: 'available', type: 'uint256' },
-      { name: 'lastDeposit', type: 'uint256' }
+      { name: 'totalDeposited', type: 'uint256' },
+      { name: 'totalWithdrawn', type: 'uint256' },
+      { name: 'roundUpBalance', type: 'uint256' },
+      { name: 'lastDepositTime', type: 'uint256' },
+      { name: 'isRegistered', type: 'bool' }
     ],
     stateMutability: 'view',
     type: 'function'
@@ -137,18 +146,25 @@ const AGENT_ABI = [
     outputs: [
       { name: 'recipient', type: 'address' },
       { name: 'amount', type: 'uint256' },
-      { name: 'nextPayment', type: 'uint256' },
-      { name: 'isActiveStatus', type: 'bool' }
+      { name: 'frequency', type: 'uint256' },
+      { name: 'nextPaymentTime', type: 'uint256' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'isPaid', type: 'bool' }
     ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  // x402 Protocol
+  {
+    inputs: [],
+    name: 'totalPaymentsReceived',
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function'
   }
 ];
 
-// Celo USD address
-const CUSD_ADDRESS = '0x765de816845861e75A25fCA122bb6898B8B1272a';
-
-// Agent deployed address
+// Agent deployed on Celo Sepolia
 const AGENT_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
 // cUSD has 6 decimals
@@ -156,14 +172,13 @@ const CUSD_DECIMALS = 6;
 
 export default function Home() {
   const { isConnected, address } = useAccount();
-  const [showDeposit, setShowDeposit] = useState(false);
-  const [showBill, setShowBill] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [billRecipient, setBillRecipient] = useState('');
   const [billAmount, setBillAmount] = useState('');
   const [billDescription, setBillDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'save' | 'bills'>('save');
   const [userRegistered, setUserRegistered] = useState(false);
+  const [showSuccess, setShowSuccess] = useState<string | null>(null);
   
   const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -171,7 +186,7 @@ export default function Home() {
   const isAgentDeployed = AGENT_ADDRESS !== null;
   const agentAddress = AGENT_ADDRESS;
 
-  // Read contract data
+  // Read contract data - REAL DATA from blockchain
   const { data: isActive } = useReadContract({
     address: agentAddress,
     abi: AGENT_ABI,
@@ -179,28 +194,35 @@ export default function Home() {
     query: { enabled: isAgentDeployed }
   });
 
-  const { data: totalSavings } = useReadContract({
+  const { data: totalSavings, refetch: refetchTotalSavings } = useReadContract({
     address: agentAddress,
     abi: AGENT_ABI,
     functionName: 'totalSavings',
     query: { enabled: isAgentDeployed }
   });
 
-  const { data: totalBillsPaid } = useReadContract({
+  const { data: totalBillsPaid, refetch: refetchBillsPaid } = useReadContract({
     address: agentAddress,
     abi: AGENT_ABI,
     functionName: 'totalBillsPaid',
     query: { enabled: isAgentDeployed }
   });
 
-  const { data: actionCount } = useReadContract({
+  const { data: actionCount, refetch: refetchActionCount } = useReadContract({
     address: agentAddress,
     abi: AGENT_ABI,
     functionName: 'actionCount',
     query: { enabled: isAgentDeployed }
   });
 
-  const { data: userSavings, refetch: refetchUserSavings } = useReadContract({
+  const { data: reputationScore } = useReadContract({
+    address: agentAddress,
+    abi: AGENT_ABI,
+    functionName: 'reputationScore',
+    query: { enabled: isAgentDeployed }
+  });
+
+  const { data: userSavingsData, refetch: refetchUserSavings } = useReadContract({
     address: agentAddress,
     abi: AGENT_ABI,
     functionName: 'getUserSavings',
@@ -208,32 +230,34 @@ export default function Home() {
     query: { enabled: isAgentDeployed && !!address }
   });
 
-  // Check if user is registered
+  // Auto-check registration status
   useEffect(() => {
-    if (userSavings) {
-      const savings = userSavings as bigint[];
-      setUserRegistered(savings[0] > BigInt(0) ||savings[1] > BigInt(0));
+    if (userSavingsData) {
+      const data = userSavingsData as any;
+      setUserRegistered(data.isRegistered);
     }
-  }, [userSavings]);
+  }, [userSavingsData]);
 
-  const registerUser = async () => {
-    if (!isAgentDeployed || !agentAddress) return;
-    try {
-      write({
-        address: agentAddress,
-        abi: AGENT_ABI,
-        functionName: 'registerUser',
-      });
-    } catch (err) {
-      console.error('Register error:', err);
+  // Refresh data after transaction
+  useEffect(() => {
+    if (isSuccess && hash) {
+      setShowSuccess('Transaction confirmed!');
+      refetchUserSavings();
+      refetchTotalSavings();
+      refetchBillsPaid();
+      refetchActionCount();
+      setTimeout(() => setShowSuccess(null), 3000);
     }
-  };
+  }, [isSuccess, hash]);
 
+  // Auto-register user on first deposit (no manual registration needed)
   const deposit = async () => {
     if (!isAgentDeployed || !agentAddress || !depositAmount) return;
     try {
-      // Convert to cUSD units (6 decimals)
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
+      
+      // If user not registered, register first, then deposit in same transaction would be ideal
+      // But for now, we'll just try to deposit - contract handles registration
       write({
         address: agentAddress,
         abi: AGENT_ABI,
@@ -265,7 +289,7 @@ export default function Home() {
     try {
       const billId = ethers.id('bill_' + Date.now());
       const amountWei = ethers.parseUnits(billAmount, CUSD_DECIMALS);
-      const frequency = (30 * 24 * 60 * 60).toString();
+      const frequency = (30 * 24 * 60 * 60).toString(); // Monthly
       
       write({
         address: agentAddress,
@@ -278,11 +302,18 @@ export default function Home() {
     }
   };
 
-  // Format cUSD amount from contract (6 decimals)
-  const formatCUSD = (value: bigint | undefined | unknown) => {
-    if (!value || typeof value !== "bigint") return '0.00';
-    return ethers.formatUnits(value, CUSD_DECIMALS);
+  // Format cUSD amount
+  const formatCUSD = (value: any) => {
+    if (!value || typeof value !== 'bigint') return '0.00';
+    try {
+      return ethers.formatUnits(value, CUSD_DECIMALS);
+    } catch {
+      return '0.00';
+    }
   };
+
+  // Get user's available balance
+  const userBalance = userSavingsData ? (userSavingsData as any).roundUpBalance : BigInt(0);
 
   return (
     <main className="min-h-screen animated-bg">
@@ -295,7 +326,7 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-xl font-bold gradient-text">AutoPocket</h1>
-              <p className="text-xs text-gray-400">ERC-8004 Agent</p>
+              <p className="text-xs text-gray-400">ERC-8004 Autonomous Agent</p>
             </div>
           </div>
           <ConnectButton />
@@ -306,7 +337,7 @@ export default function Home() {
       {!isConnected && (
         <>
           {/* Hero Section */}
-          <section className="relative py-24 px-4 overflow-hidden">
+          <section className="relative py-28 px-4 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden">
               <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-green-500/20 rounded-full blur-3xl" />
               <div className="absolute -bottom-1/2 -left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
@@ -315,148 +346,163 @@ export default function Home() {
             <div className="max-w-4xl mx-auto text-center relative z-10">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
                 <Shield className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-300">ERC-8004 Compliant Agent</span>
+                <span className="text-sm text-gray-300">ERC-8004 Compliant</span>
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-gray-500">|</span>
+                <Zap className="w-4 h-4 text-yellow-400" />
+                <span className="text-sm text-gray-300">x402 Ready</span>
               </div>
               
               <h2 className="text-5xl md:text-7xl font-bold mb-6">
-                Your <span className="gradient-text">AI Savings</span> Agent
+                Autonomous <span className="gradient-text">Savings</span> Agent
               </h2>
               
               <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                Autonomous round-up savings & bill payments for Celo. 
-                Let AI manage your finances while you focus on what matters.
+                Let AI manage your finances on Celo. Automatic savings, scheduled bill payments, 
+                and full on-chain identity - all in one intelligent agent.
               </p>
 
-              <div className="flex flex-wrap justify-center gap-4 mb-12">
+              <div className="flex flex-wrap justify-center gap-6 mb-10">
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle className="w-5 h-5" />
-                  <span>No minimum balance</span>
+                  <span>Auto-save spare change</span>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle className="w-5 h-5" />
-                  <span>Automated savings</span>
+                  <span>Scheduled bill payments</span>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle className="w-5 h-5" />
-                  <span>Instant withdrawals</span>
+                  <span>ERC-8004 identity</span>
                 </div>
               </div>
 
-              <p className="text-gray-500 mb-4">Connect your wallet to get started</p>
+              <p className="text-gray-500">Connect your wallet to get started</p>
             </div>
           </section>
 
-          {/* Features Section */}
-          <section className="px-4 py-16">
+          {/* Features - What the Agent Does */}
+          <section className="px-4 py-20">
             <div className="max-w-6xl mx-auto">
-              <h3 className="text-3xl font-bold text-center mb-4">Why Choose AutoPocket?</h3>
+              <h3 className="text-3xl font-bold text-center mb-4">How Your Agent Works</h3>
               <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
-                The first autonomous savings agent on Celo that helps you save automatically
+                Your personal AI financial agent operates autonomously on-chain
               </p>
               
               <div className="grid md:grid-cols-3 gap-6">
-                <div className="glass rounded-2xl p-8 hover:border-green-500/30 transition-colors">
+                <div className="glass rounded-2xl p-8 hover:border-green-500/30 transition-all hover:scale-105">
                   <div className="w-14 h-14 rounded-2xl bg-green-500/20 flex items-center justify-center mb-4">
                     <Target className="w-7 h-7 text-green-400" />
                   </div>
-                  <h4 className="text-xl font-bold mb-3">Round-Up Savings</h4>
+                  <h4 className="text-xl font-bold mb-3">Smart Savings</h4>
                   <p className="text-gray-400">
-                    Automatically round up your transactions to the nearest dollar and save the difference. 
-                    Every purchase becomes a chance to grow your savings.
+                    Deposit cUSD and let your agent grow it. Round-up features and automatic 
+                    savings strategies help you build wealth effortlessly.
                   </p>
                 </div>
                 
-                <div className="glass rounded-2xl p-8 hover:border-purple-500/30 transition-colors">
+                <div className="glass rounded-2xl p-8 hover:border-purple-500/30 transition-all hover:scale-105">
                   <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-4">
                     <Calendar className="w-7 h-7 text-purple-400" />
                   </div>
                   <h4 className="text-xl font-bold mb-3">Auto Bill Pay</h4>
                   <p className="text-gray-400">
-                    Schedule recurring payments for rent, utilities, or subscriptions. 
-                    Never miss a due date again with automated transfers.
+                    Set up recurring payments for rent, utilities, subscriptions. 
+                    Your agent ensures they're paid on time, every time.
                   </p>
                 </div>
                 
-                <div className="glass rounded-2xl p-8 hover:border-blue-500/30 transition-colors">
+                <div className="glass rounded-2xl p-8 hover:border-blue-500/30 transition-all hover:scale-105">
                   <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-4">
                     <Shield className="w-7 h-7 text-blue-400" />
                   </div>
-                  <h4 className="text-xl font-bold mb-3">ERC-8004 Secure</h4>
+                  <h4 className="text-xl font-bold mb-3">On-Chain Identity</h4>
                   <p className="text-gray-400">
-                    Full on-chain identity and reputation system. Your agent, your rules, 
-                    fully transparent and verifiable.
+                    Full ERC-8004 compliance means your agent has verifiable identity 
+                    and reputation. Trustless, transparent, and autonomous.
                   </p>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* How It Works */}
+          {/* Live Stats - REAL DATA from contract */}
           <section className="px-4 py-16">
-            <div className="max-w-6xl mx-auto">
-              <h3 className="text-3xl font-bold text-center mb-12">How It Works</h3>
-              
-              <div className="grid md:grid-cols-3 gap-8">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Wallet className="w-8 h-8 text-green-400" />
-                  </div>
-                  <h4 className="font-bold mb-2">1. Connect Wallet</h4>
-                  <p className="text-gray-400 text-sm">Link your Celo wallet to get started in seconds</p>
-                </div>
-                
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <DollarSign className="w-8 h-8 text-purple-400" />
-                  </div>
-                  <h4 className="font-bold mb-2">2. Deposit Funds</h4>
-                  <p className="text-gray-400 text-sm">Add cUSD to your savings account</p>
-                </div>
-                
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                    <TrendingUp className="w-8 h-8 text-blue-400" />
-                  </div>
-                  <h4 className="font-bold mb-2">3. Watch It Grow</h4>
-                  <p className="text-gray-400 text-sm">AI automates your savings & bill payments</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Stats Banner */}
-          <section className="px-4 py-12">
             <div className="max-w-4xl mx-auto">
               <div className="glass rounded-2xl p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold">Live Network Stats</h3>
+                  <a 
+                    href="https://sepolia.celoscan.io/address/0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-white"
+                  >
+                    View Contract <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                
                 <div className="grid md:grid-cols-3 gap-8 text-center">
                   <div>
-                    <p className="text-4xl font-bold gradient-text">$0</p>
-                    <p className="text-gray-400 mt-2">Total Saved</p>
+                    <p className="text-4xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
+                    <p className="text-gray-400 mt-2">Total Network Savings</p>
                   </div>
                   <div>
-                    <p className="text-4xl font-bold gradient-text">0</p>
-                    <p className="text-gray-400 mt-2">Active Users</p>
+                    <p className="text-4xl font-bold gradient-text">{totalBillsPaid ? Number(totalBillsPaid).toString() : '0'}</p>
+                    <p className="text-gray-400 mt-2">Bills Processed</p>
                   </div>
                   <div>
-                    <p className="text-4xl font-bold gradient-text">$0</p>
-                    <p className="text-gray-400 mt-2">Bills Paid</p>
+                    <p className="text-4xl font-bold gradient-text">{actionCount ? Number(actionCount).toString() : '0'}</p>
+                    <p className="text-gray-400 mt-2">Total Actions</p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* CTA Section */}
+          {/* Technology Section */}
           <section className="px-4 py-16">
+            <div className="max-w-6xl mx-auto">
+              <h3 className="text-3xl font-bold text-center mb-12">Built on Celo</h3>
+              
+              <div className="grid md:grid-cols-4 gap-6">
+                <div className="glass rounded-xl p-6 text-center">
+                  <Globe className="w-8 h-8 mx-auto mb-3 text-green-400" />
+                  <h4 className="font-bold mb-2">Mobile-First</h4>
+                  <p className="text-sm text-gray-400">Built for everyone with phone-first blockchain experience</p>
+                </div>
+                
+                <div className="glass rounded-xl p-6 text-center">
+                  <DollarSign className="w-8 h-8 mx-auto mb-3 text-green-400" />
+                  <h4 className="font-bold mb-2">cUSD Stablecoin</h4>
+                  <p className="text-sm text-gray-400">USD-pegged stablecoin for stable savings</p>
+                </div>
+                
+                <div className="glass rounded-xl p-6 text-center">
+                  <Zap className="w-8 h-8 mx-auto mb-3 text-yellow-400" />
+                  <h4 className="font-bold mb-2">x402 Protocol</h4>
+                  <p className="text-sm text-gray-400">Autonomous API payments for agent services</p>
+                </div>
+                
+                <div className="glass rounded-xl p-6 text-center">
+                  <Star className="w-8 h-8 mx-auto mb-3 text-purple-400" />
+                  <h4 className="font-bold mb-2">ERC-8004</h4>
+                  <p className="text-sm text-gray-400">Standard for AI agent identity and reputation</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* CTA */}
+          <section className="px-4 py-20">
             <div className="max-w-2xl mx-auto text-center">
-              <h3 className="text-3xl font-bold mb-4">Ready to Start Saving?</h3>
+              <h3 className="text-3xl font-bold mb-4">Ready to start?</h3>
               <p className="text-gray-400 mb-8">
-                Join the future of automated savings on Celo blockchain
+                Connect your wallet and let your autonomous agent handle the rest
               </p>
               <div className="inline-flex items-center gap-2 text-sm text-gray-500">
                 <Lock className="w-4 h-4" />
-                <span>Secure • Fast • Autonomous</span>
+                <span>No registration needed • Just connect and use</span>
               </div>
             </div>
           </section>
@@ -466,17 +512,32 @@ export default function Home() {
       {/* DASHBOARD - Show when connected */}
       {isConnected && isAgentDeployed && (
         <>
-          {/* Welcome & Stats */}
           <section className="px-4 py-8">
             <div className="max-w-6xl mx-auto">
-              {/* Stats Grid */}
+              {/* Success Message */}
+              {showSuccess && (
+                <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                  <span className="text-green-400">{showSuccess}</span>
+                </div>
+              )}
+
+              {/* Stats Grid - REAL DATA */}
               <div className="grid md:grid-cols-4 gap-4 mb-8">
                 <div className="glass rounded-2xl p-6">
                   <div className="flex items-center gap-3 mb-2">
                     <PiggyBank className="w-5 h-5 text-green-400" />
-                    <span className="text-gray-400 text-sm">Total Saved</span>
+                    <span className="text-gray-400 text-sm">Your Balance</span>
                   </div>
-                  <p className="text-3xl font-bold">${formatCUSD(totalSavings)}</p>
+                  <p className="text-3xl font-bold">${formatCUSD(userBalance)}</p>
+                </div>
+                
+                <div className="glass rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <TrendingUp className="w-5 h-5 text-green-400" />
+                    <span className="text-gray-400 text-sm">Total Deposited</span>
+                  </div>
+                  <p className="text-3xl font-bold">${userSavingsData ? formatCUSD((userSavingsData as any).totalDeposited) : '0.00'}</p>
                 </div>
                 
                 <div className="glass rounded-2xl p-6">
@@ -484,241 +545,247 @@ export default function Home() {
                     <Calendar className="w-5 h-5 text-purple-400" />
                     <span className="text-gray-400 text-sm">Bills Paid</span>
                   </div>
-                  <p className="text-3xl font-bold">{totalBillsPaid ? Number(totalBillsPaid) : '0'}</p>
+                  <p className="text-3xl font-bold">{totalBillsPaid ? Number(totalBillsPaid).toString() : '0'}</p>
                 </div>
                 
                 <div className="glass rounded-2xl p-6">
                   <div className="flex items-center gap-3 mb-2">
                     <Activity className="w-5 h-5 text-yellow-400" />
-                    <span className="text-gray-400 text-sm">Actions</span>
+                    <span className="text-gray-400 text-sm">Network Actions</span>
                   </div>
-                  <p className="text-3xl font-bold">{actionCount ? Number(actionCount) : '0'}</p>
-                </div>
-                
-                <div className="glass rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Wallet className="w-5 h-5 text-blue-400" />
-                    <span className="text-gray-400 text-sm">Your Balance</span>
-                  </div>
-                  <p className="text-3xl font-bold">${formatCUSD((userSavings as bigint[])?.[1])}</p>
+                  <p className="text-3xl font-bold">{actionCount ? Number(actionCount).toString() : '0'}</p>
                 </div>
               </div>
 
-              {/* Register CTA - Show if not registered */}
-              {!userRegistered && (
-                <div className="glass rounded-2xl p-6 mb-8 border-amber-500/30">
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              {/* Agent Status */}
+              <div className="glass rounded-2xl p-6 mb-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-400'} animate-pulse`} />
                     <div>
-                      <h3 className="font-bold text-lg mb-1">Welcome to AutoPocket! 🚀</h3>
-                      <p className="text-gray-400 text-sm">Register to start using the agent</p>
+                      <p className="font-bold">Your Autonomous Agent</p>
+                      <p className="text-sm text-gray-400">ERC-8004 • {agentAddress.slice(0, 6)}...{agentAddress.slice(-4)}</p>
                     </div>
-                    <button
-                      onClick={registerUser}
-                      disabled={isPending}
-                      className="px-6 py-3 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold transition-colors"
-                    >
-                      {isPending ? 'Confirm in Wallet...' : 'Register Now'}
-                    </button>
                   </div>
-                </div>
-              )}
-
-              {/* Main Dashboard */}
-              {userRegistered && (
-                <div className="glass rounded-2xl p-8">
-                  {/* Tabs */}
-                  <div className="flex gap-4 mb-6 border-b border-white/10 pb-4">
-                    <button
-                      onClick={() => setActiveTab('save')}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                        activeTab === 'save' 
-                          ? 'bg-green-500/20 text-green-400' 
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <PiggyBank className="w-5 h-5" />
-                      Savings
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('bills')}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                        activeTab === 'bills' 
-                          ? 'bg-purple-500/20 text-purple-400' 
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <Calendar className="w-5 h-5" />
-                      Bills
-                    </button>
-                  </div>
-
-                  {/* Savings Tab */}
-                  {activeTab === 'save' && (
-                    <div className="space-y-6">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {/* Deposit */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                              <ArrowUpCircle className="w-6 h-6 text-green-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold">Deposit</h4>
-                              <p className="text-sm text-gray-400">Add funds to your savings</p>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <input
-                              type="number"
-                              placeholder="Amount (cUSD)"
-                              value={depositAmount}
-                              onChange={(e) => setDepositAmount(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
-                            />
-                            <button
-                              onClick={deposit}
-                              disabled={isPending || !depositAmount}
-                              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold transition-colors"
-                            >
-                              {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Processing...' : 'Deposit'}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Withdraw */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                              <ArrowDownCircle className="w-6 h-6 text-blue-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold">Withdraw</h4>
-                              <p className="text-sm text-gray-400">Pull funds from savings</p>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <input
-                              type="number"
-                              placeholder="Amount (cUSD)"
-                              value={depositAmount}
-                              onChange={(e) => setDepositAmount(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                            />
-                            <button
-                              onClick={withdraw}
-                              disabled={isPending || !depositAmount}
-                              className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold transition-colors"
-                            >
-                              {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Processing...' : 'Withdraw'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quick Amounts */}
-                      <div className="pt-4 border-t border-white/10">
-                        <p className="text-sm text-gray-400 mb-3">Quick amounts</p>
-                        <div className="flex flex-wrap gap-2">
-                          {[5, 10, 25, 50, 100].map((amount) => (
-                            <button
-                              key={amount}
-                              onClick={() => setDepositAmount(amount.toString())}
-                              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 transition-colors"
-                            >
-                              ${amount}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                  {reputationScore && (
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-400" />
+                      <span>Reputation: {reputationScore.toString()}/100</span>
                     </div>
                   )}
+                </div>
+              </div>
 
-                  {/* Bills Tab */}
-                  {activeTab === 'bills' && (
-                    <div className="space-y-6">
+              {/* Main Dashboard */}
+              <div className="glass rounded-2xl p-8">
+                {/* Tabs */}
+                <div className="flex gap-4 mb-6 border-b border-white/10 pb-4">
+                  <button
+                    onClick={() => setActiveTab('save')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      activeTab === 'save' 
+                        ? 'bg-green-500/20 text-green-400' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <PiggyBank className="w-5 h-5" />
+                    Savings
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('bills')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      activeTab === 'bills' 
+                        ? 'bg-purple-500/20 text-purple-400' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Calendar className="w-5 h-5" />
+                    Bills
+                  </button>
+                </div>
+
+                {/* Savings Tab */}
+                {activeTab === 'save' && (
+                  <div className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Deposit */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                            <Calendar className="w-6 h-6 text-purple-400" />
+                          <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                            <ArrowUpCircle className="w-6 h-6 text-green-400" />
                           </div>
                           <div>
-                            <h4 className="font-bold">Create Recurring Bill</h4>
-                            <p className="text-sm text-gray-400">Set up automatic payments</p>
+                            <h4 className="font-bold">Deposit</h4>
+                            <p className="text-sm text-gray-400">Add funds to your savings</p>
                           </div>
                         </div>
                         
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <input
-                            type="text"
-                            placeholder="Recipient Address (0x...)"
-                            value={billRecipient}
-                            onChange={(e) => setBillRecipient(e.target.value)}
-                            className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                          />
+                        <div className="space-y-2">
                           <input
                             type="number"
                             placeholder="Amount (cUSD)"
-                            value={billAmount}
-                            onChange={(e) => setBillAmount(e.target.value)}
-                            className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                            value={depositAmount}
+                            onChange={(e) => setDepositAmount(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
                           />
+                          <button
+                            onClick={deposit}
+                            disabled={isPending || !depositAmount}
+                            className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold transition-colors"
+                          >
+                            {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Processing...' : 'Deposit'}
+                          </button>
                         </div>
+                      </div>
+
+                      {/* Withdraw */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <ArrowDownCircle className="w-6 h-6 text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold">Withdraw</h4>
+                            <p className="text-sm text-gray-400">Pull funds from savings</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <input
+                            type="number"
+                            placeholder="Amount (cUSD)"
+                            value={depositAmount}
+                            onChange={(e) => setDepositAmount(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                          />
+                          <button
+                            onClick={withdraw}
+                            disabled={isPending || !depositAmount}
+                            className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold transition-colors"
+                          >
+                            {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Processing...' : 'Withdraw'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Amounts */}
+                    <div className="pt-4 border-t border-white/10">
+                      <p className="text-sm text-gray-400 mb-3">Quick amounts</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[5, 10, 25, 50, 100].map((amount) => (
+                          <button
+                            key={amount}
+                            onClick={() => setDepositAmount(amount.toString())}
+                            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 transition-colors"
+                          >
+                            ${amount}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bills Tab */}
+                {activeTab === 'bills' && (
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                          <Calendar className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">Create Recurring Bill</h4>
+                          <p className="text-sm text-gray-400">Set up automatic payments</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
                         <input
                           type="text"
-                          placeholder="Description (e.g., Monthly Rent)"
-                          value={billDescription}
-                          onChange={(e) => setBillDescription(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                          placeholder="Recipient Address (0x...)"
+                          value={billRecipient}
+                          onChange={(e) => setBillRecipient(e.target.value)}
+                          className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                         />
-                        <button
-                          onClick={createBill}
-                          disabled={isPending || !billRecipient || !billAmount || !billDescription}
-                          className="w-full py-3 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold transition-colors"
-                        >
-                          {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Creating...' : 'Create Bill'}
-                        </button>
+                        <input
+                          type="number"
+                          placeholder="Amount (cUSD)"
+                          value={billAmount}
+                          onChange={(e) => setBillAmount(e.target.value)}
+                          className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                        />
                       </div>
-
-                      {/* Existing Bills Placeholder */}
-                      <div className="text-center py-8 text-gray-500">
-                        <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No active bills yet</p>
-                        <p className="text-sm">Create your first recurring payment above</p>
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Description (e.g., Monthly Rent)"
+                        value={billDescription}
+                        onChange={(e) => setBillDescription(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                      />
+                      <button
+                        onClick={createBill}
+                        disabled={isPending || !billRecipient || !billAmount || !billDescription}
+                        className="w-full py-3 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold transition-colors"
+                      >
+                        {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Creating...' : 'Create Recurring Bill'}
+                      </button>
                     </div>
-                  )}
 
-                  {/* Transaction Status */}
-                  {hash && (
-                    <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
-                      <p className="text-sm text-gray-400 mb-1">Transaction:</p>
-                      <p className="text-xs font-mono text-green-400 break-all">{hash}</p>
-                      {isSuccess && (
-                        <p className="text-green-400 text-sm mt-2 flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4" /> Transaction confirmed!
-                        </p>
-                      )}
-                      {writeError && (
-                        <p className="text-red-400 text-sm mt-2">
-                          Error: {writeError.message}
-                        </p>
-                      )}
+                    {/* Info */}
+                    <div className="text-center py-8 text-gray-500">
+                      <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No active bills yet</p>
+                      <p className="text-sm">Create your first recurring payment above</p>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {/* Transaction Status */}
+                {hash && (
+                  <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-gray-400 mb-1">Transaction:</p>
+                    <p className="text-xs font-mono text-green-400 break-all">{hash}</p>
+                    {isSuccess && (
+                      <p className="text-green-400 text-sm mt-2 flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" /> Confirmed!
+                      </p>
+                    )}
+                    {writeError && (
+                      <p className="text-red-400 text-sm mt-2">
+                        Error: {writeError.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         </>
+      )}
+
+      {/* Agent Not Deployed Warning */}
+      {isConnected && !isAgentDeployed && (
+        <section className="px-4 py-20">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="glass rounded-2xl p-8">
+              <AlertCircle className="w-16 h-16 mx-auto mb-4 text-amber-400" />
+              <h3 className="text-2xl font-bold mb-2">Agent Not Deployed</h3>
+              <p className="text-gray-400 mb-6">
+                The AutoPocket agent contract is not deployed on this network. 
+                Please switch to Celo Alfajores testnet.
+              </p>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 px-4 mt-12">
         <div className="max-w-6xl mx-auto text-center text-gray-500">
           <p>🤖 AutoPocket - Autonomous Savings Agent</p>
-          <p className="text-sm mt-2">Built with 💜 by @dr_winner</p>
+          <p className="text-sm mt-2">ERC-8004 • x402 • Celo</p>
         </div>
       </footer>
     </main>
