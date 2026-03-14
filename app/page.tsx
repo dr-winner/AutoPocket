@@ -129,7 +129,7 @@ const CUSD_ADDRESS = '0x765de816845861e75A25fCA122bb6898B8B1272a';
 
 // Agent deployment state - set to deployed agent address after deployment
 // For now, set to null to show "Coming Soon" state
-const AGENT_ADDRESS = null as `0x${string}` | null;
+const AGENT_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
 // Placeholder shown when agent is not yet deployed
 const UNDEPLOYED_MESSAGE = 'Agent not yet deployed';
@@ -541,7 +541,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 px-4">
         <div className="max-w-6xl mx-auto text-center text-gray-500">
-          <p>🤖 AutoPocket - Celo &quot;Build Agents for the Real World V2&quot; Hackathon</p>
+          <p>🤖 AutoPocket - Autonomous Savings Agent</p>
           <p className="text-sm mt-2">Built with 💜 by @dr_winner</p>
         </div>
       </footer>

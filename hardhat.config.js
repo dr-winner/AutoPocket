@@ -10,6 +10,11 @@ module.exports = {
       chainId: 44787,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
+    celoSepolia: {
+      url: "https://celo-sepoliarpc.testnetops.io",
+      chainId: 447869,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
     celo: {
       url: "https://forno.celo.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
