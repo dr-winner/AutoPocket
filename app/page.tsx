@@ -212,7 +212,7 @@ export default function Home() {
   useEffect(() => {
     if (userSavings) {
       const savings = userSavings as bigint[];
-      setUserRegistered(savings[0] > 0n || savings[1] > 0n);
+      setUserRegistered(savings[0] > BigInt(0) ||savings[1] > BigInt(0));
     }
   }, [userSavings]);
 
