@@ -2,7 +2,7 @@
 
 import { WagmiProvider, createConfig, http, fallback } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { mainnet, celo, celoSepolia } from 'wagmi/chains';
+import { mainnet, celo } from 'wagmi/chains';
 import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import { useState } from 'react';
 // Get free projectId at https://cloud.walletconnect.com
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '570d27fd124c1dbc243a7e48350a91c0';
 
-// Custom chain for Celo Sepolia
+// Custom chain for Celo Sepolia (not in wagmi yet)
 const celoSepoliaTestnet = {
   id: 447869,
   name: 'Celo Sepolia',
