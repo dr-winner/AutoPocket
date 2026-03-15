@@ -498,7 +498,7 @@ export default function Home() {
           </section>
 
           {/* How It Works */}
-          <section className="px-4 py-16 bg-white/5">
+          <section className="px-4 py-16">
             <div className="max-w-4xl mx-auto">
               <h3 className="text-3xl font-bold text-center mb-12">How It Works</h3>
               
