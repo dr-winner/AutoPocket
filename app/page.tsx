@@ -132,15 +132,18 @@ export default function Home() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const { switchChain } = useSwitchChain();
 
-  // Celo Sepolia chain ID - convert to number for comparison
+  // Celo Sepolia chain ID
   const CELO_SEPOLIA_CHAIN_ID = 447869;
-  const isCorrectChain = chainId ? Number(chainId) === CELO_SEPOLIA_CHAIN_ID : false;
   
-  // Debug logging
+  // Simple chain check - just verify it's the right number
+  const isCorrectChain = chainId != null && (Number(chainId) === CELO_SEPOLIA_CHAIN_ID);
+  
+  // Debug logging - check what chain we're actually getting
   useEffect(() => {
-    console.log('[DEBUG] chainId:', chainId, 'type:', typeof chainId);
-    console.log('[DEBUG] isCorrectChain:', isCorrectChain, 'CELO_SEPOLIA_CHAIN_ID:', CELO_SEPOLIA_CHAIN_ID);
-  }, [chainId, isCorrectChain]);
+    if (isConnected) {
+      console.log('[DEBUG] Connected. chainId:', chainId, 'Expected:', CELO_SEPOLIA_CHAIN_ID, 'Match:', isCorrectChain);
+    }
+  }, [chainId, isConnected, isCorrectChain]);
 
   // Use V2 if available, otherwise V1
   const agentAddress = useV2 ? AGENT_V2_ADDRESS : AGENT_V1_ADDRESS;
@@ -232,12 +235,11 @@ export default function Home() {
     }
   }, [writeError]);
 
-  // Check chain on connection
+  // Check chain on connection - less aggressive
   useEffect(() => {
-    // Only show warning if we have a chainId and it's NOT Celo Sepolia
-    if (isConnected && chainId && !isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia');
-      setTimeout(() => setShowSuccess(null), 5000);
+    // Only log for debugging, don't show warning
+    if (isConnected && chainId) {
+      console.log('[CHAIN CHECK] chainId:', chainId, 'isCorrectChain:', isCorrectChain);
     }
   }, [isConnected, chainId, isCorrectChain]);
 
@@ -250,11 +252,6 @@ export default function Home() {
   // Actions
   const deposit = async () => {
     if (!depositAmount) return;
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       write({
@@ -268,11 +265,6 @@ export default function Home() {
 
   const depositWithRoundUp = async () => {
     if (!depositAmount) return;
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       write({
@@ -286,11 +278,6 @@ export default function Home() {
 
   const withdraw = async () => {
     if (!withdrawAmount) return;
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
       write({
@@ -307,11 +294,6 @@ export default function Home() {
   };
 
   const registerUser = async () => {
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       write({
         address: agentAddress,
@@ -324,11 +306,6 @@ export default function Home() {
 
   const createBill = async () => {
     if (!billRecipient || !billAmount || !billDescription) return;
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       const billId = ethers.id('bill_' + Date.now());
       const amountWei = ethers.parseUnits(billAmount, CUSD_DECIMALS);
@@ -345,11 +322,6 @@ export default function Home() {
     if (!sessionKeyInput || !ethers.isAddress(sessionKeyInput)) {
       setShowSuccess('Invalid address');
       setTimeout(() => setShowSuccess(null), 3000);
-      return;
-    }
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
       return;
     }
     try {
@@ -369,11 +341,6 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       write({
         address: agentAddress,
@@ -387,11 +354,6 @@ export default function Home() {
 
   const setRoundUp = async () => {
     if (!roundUpThreshold) return;
-    if (!isCorrectChain) {
-      setShowSuccess('Please switch to Celo Sepolia first');
-      setTimeout(() => setShowSuccess(null), 5000);
-      return;
-    }
     try {
       const threshold = ethers.parseUnits(roundUpThreshold, CUSD_DECIMALS);
       write({

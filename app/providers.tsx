@@ -30,9 +30,10 @@ const config = getDefaultConfig({
   projectId: projectId,
   chains: [mainnet, celo, celoSepoliaTestnet],
   transports: {
-    [mainnet.id]: http(),
+    [mainnet.id]: fallback([http()]),
     [celoSepoliaTestnet.id]: fallback([
       http('https://forno.celo-sepolia.celo-testnet.org'),
+      http('https://rpc.ankr.com/celo_sepolia'),
     ]),
     [celo.id]: fallback([
       http('https://forno.celo.org'),
