@@ -228,7 +228,8 @@ export async function GET(request: NextRequest) {
           agent: {
             name: 'AutoPocket',
             version: '2.0.0',
-            contract: CONTRACT_ADDRESS            network: 'celo-sepolia',
+            contract: CONTRACT_ADDRESS,
+            network: 'celo-sepolia',
             isActive,
             stats: {
               totalSavings: ethers.formatUnits(stats[0], 6),
