@@ -1,0 +1,54 @@
+{
+  "type": "Agent",
+  "name": "AutoPocket",
+  "description": "Autonomous Savings Agent for Celo - Automate your savings, bills, and yield with AI-powered financial management",
+  "image": "https://autopocket.vercel.app/og-image.png",
+  "version": "2.0.0",
+  "endpoints": [
+    {
+      "type": "mcp",
+      "url": "https://autopocket.vercel.app/api/mcp",
+      "version": "1.0.0",
+      "description": "Model Context Protocol for agent interaction"
+    },
+    {
+      "type": "web",
+      "url": "https://autopocket.vercel.app",
+      "description": "Web interface for users"
+    }
+  ],
+  "capabilities": [
+    "savings",
+    "round-up",
+    "bills",
+    "yield",
+    "rewards",
+    "notifications",
+    "account-abstraction"
+  ],
+  "supportedTrust": [
+    "reputation",
+    "validation"
+  ],
+  "pricing": {
+    "deposit": "0",
+    "withdraw": "0",
+    "create-bill": "0",
+    "query": "0"
+  },
+  "contract": {
+    "address": "0xE11D19503029Ed7D059A0022288FB88d61C7c3b4",
+    "network": "celo-sepolia",
+    "chainId": 44787
+  },
+  "x402": {
+    "enabled": true,
+    "token": "0x765de816845861e75a25fca122bb6898b8b1272a"
+  },
+  "metadata": {
+    "author": "dr-winner",
+    "license": "MIT",
+    "created": "2026-03-15",
+    "updated": "2026-03-15"
+  }
+}
