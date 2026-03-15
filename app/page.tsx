@@ -94,8 +94,8 @@ const AGENT_V2_ABI = [
   ], stateMutability: 'view', type: 'function' },
 ];
 
-// V2 Contract - will deploy to Celo Alfajores
-const AGENT_V2_ADDRESS = '0xD983aB98b1C8B1c9e1f2E3D4f5A6B7C8D9E0F1A' as `0x${string}`;
+// V2 Contract - deployed to Celo Sepolia
+const AGENT_V2_ADDRESS = '0xE11D19503029Ed7D059A0022288FB88d61C7c3b4' as `0x${string}`;
 // Fallback to V1 for now
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
@@ -111,7 +111,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'save' | 'bills' | 'yield' | 'notifications'>('save');
   const [userRegistered, setUserRegistered] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
-  const [useV2, setUseV2] = useState(false);
+  const [useV2, setUseV2] = useState(true);
   
   const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });

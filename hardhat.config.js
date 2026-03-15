@@ -1,17 +1,13 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.20",
   networks: {
-    hardhat: {
-      chainId: 44787,
-    },
-    alfajores: {
-      url: "https://1rpc.io/celo-alfajores",
-      chainId: 44787,
+    celoSepolia: {
+      url: "https://rpc.ankr.com/celo_sepolia",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 5000000000, // 5 Gwei
     },
   },
 };
