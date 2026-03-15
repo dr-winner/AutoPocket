@@ -135,6 +135,12 @@ export default function Home() {
   // Celo Sepolia chain ID - convert to number for comparison
   const CELO_SEPOLIA_CHAIN_ID = 447869;
   const isCorrectChain = chainId ? Number(chainId) === CELO_SEPOLIA_CHAIN_ID : false;
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[DEBUG] chainId:', chainId, 'type:', typeof chainId);
+    console.log('[DEBUG] isCorrectChain:', isCorrectChain, 'CELO_SEPOLIA_CHAIN_ID:', CELO_SEPOLIA_CHAIN_ID);
+  }, [chainId, isCorrectChain]);
 
   // Use V2 if available, otherwise V1
   const agentAddress = useV2 ? AGENT_V2_ADDRESS : AGENT_V1_ADDRESS;
@@ -225,11 +231,12 @@ export default function Home() {
 
   // Check chain on connection
   useEffect(() => {
-    if (isConnected && !isCorrectChain) {
+    // Only show warning if we have a chainId and it's NOT Celo Sepolia
+    if (isConnected && chainId && !isCorrectChain) {
       setShowSuccess('Please switch to Celo Sepolia');
       setTimeout(() => setShowSuccess(null), 5000);
     }
-  }, [isConnected, isCorrectChain]);
+  }, [isConnected, chainId, isCorrectChain]);
 
   // Format cUSD
   const formatCUSD = (value: any) => {
@@ -389,6 +396,12 @@ export default function Home() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
                 <span className="text-sm text-green-400">Celo Sepolia</span>
+              </div>
+            )}
+            {isConnected && !isCorrectChain && chainId && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <span className="text-sm text-red-400">Wrong: {Number(chainId)}</span>
               </div>
             )}
             {isConnected && useV2 ? (
