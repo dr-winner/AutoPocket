@@ -30,7 +30,8 @@ import {
   Users,
   Lock,
   Globe,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2
 } from 'lucide-react';
 
 // AutoPocket Agent V2 ABI
@@ -169,6 +170,23 @@ export default function Home() {
     }
   }, [isSuccess, hash]);
 
+  // Handle write errors
+  useEffect(() => {
+    if (writeError) {
+      const errorStr = String(writeError);
+      if (errorStr.includes('User rejected')) {
+        setShowSuccess('Transaction cancelled');
+      } else if (errorStr.includes('insufficient funds')) {
+        setShowSuccess('Insufficient funds for gas');
+      } else if (errorStr.includes('chain')) {
+        setShowSuccess('Wrong network - switch to Celo Sepolia');
+      } else {
+        setShowSuccess(`Error: ${errorStr.slice(0, 50)}`);
+      }
+      setTimeout(() => setShowSuccess(null), 5000);
+    }
+  }, [writeError]);
+
   // Format cUSD
   const formatCUSD = (value: any) => {
     if (!value || typeof value !== 'bigint') return '0.00';
@@ -282,14 +300,7 @@ export default function Home() {
             {isConnected && address && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
                 <Shield className="w-4 h-4 text-purple-400" />
-                <a 
-                  href={`https://app.self.xyz/verify?address=${address}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-purple-400 hover:text-purple-300"
-                >
-                  Get Verified
-                </a>
+                <span className="text-sm text-gray-400">Verify identity →</span>
               </div>
             )}
             {isConnected && useV2 ? (
@@ -507,9 +518,27 @@ export default function Home() {
         <section className="px-4 py-8">
           <div className="max-w-6xl mx-auto">
             {showSuccess && (
-              <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-                <span className="text-green-400">{showSuccess}</span>
+              <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
+                showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network')
+                  ? 'bg-red-500/20 border border-red-500/30' 
+                  : 'bg-green-500/20 border border-green-500/30'
+              }`}>
+                {showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') ? (
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                ) : (
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                )}
+                <span className={showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') ? 'text-red-400' : 'text-green-400'}>
+                  {showSuccess}
+                </span>
+              </div>
+            )}
+
+            {/* Pending indicator */}
+            {isPending && (
+              <div className="mb-6 p-4 rounded-xl bg-yellow-500/20 border border-yellow-500/30 flex items-center gap-3">
+                <Loader2 className="w-5 h-5 text-yellow-400 animate-spin" />
+                <span className="text-yellow-400">Confirm in wallet...</span>
               </div>
             )}
 
