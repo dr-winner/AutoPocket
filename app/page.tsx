@@ -437,24 +437,6 @@ export default function Home() {
                 Your money works harder while you sleep.
               </p>
 
-              {/* Live Stats Preview */}
-              <div className="flex flex-wrap justify-center gap-6 mb-10 p-4 glass rounded-2xl">
-                <div className="text-center">
-                  <p className="text-2xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
-                  <p className="text-sm text-gray-400">Total Saved</p>
-                </div>
-                <div className="w-px bg-white/10" />
-                <div className="text-center">
-                  <p className="text-2xl font-bold gradient-text">{Number(totalBillsPaid)}</p>
-                  <p className="text-sm text-gray-400">Bills Paid</p>
-                </div>
-                <div className="w-px bg-white/10" />
-                <div className="text-center">
-                  <p className="text-2xl font-bold gradient-text">{Number(actionCount)}</p>
-                  <p className="text-sm text-gray-400">Agent Actions</p>
-                </div>
-              </div>
-
               <div className="flex flex-wrap justify-center gap-4 mb-10">
                 {[
                   { icon: Target, text: 'Round-up Savings', color: 'text-green-400' },
@@ -558,7 +540,7 @@ export default function Home() {
             <div className="max-w-4xl mx-auto">
               <div className="glass rounded-2xl p-8">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold">Network Statistics</h3>
+                  <h3 className="text-xl font-bold">Your Statistics</h3>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                     <span className="text-sm text-gray-400">Live</span>
