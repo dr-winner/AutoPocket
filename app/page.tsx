@@ -132,9 +132,9 @@ export default function Home() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const { switchChain } = useSwitchChain();
 
-  // Celo Sepolia chain ID
+  // Celo Sepolia chain ID - convert to number for comparison
   const CELO_SEPOLIA_CHAIN_ID = 447869;
-  const isCorrectChain = chainId === CELO_SEPOLIA_CHAIN_ID;
+  const isCorrectChain = chainId ? Number(chainId) === CELO_SEPOLIA_CHAIN_ID : false;
 
   // Use V2 if available, otherwise V1
   const agentAddress = useV2 ? AGENT_V2_ADDRESS : AGENT_V1_ADDRESS;
