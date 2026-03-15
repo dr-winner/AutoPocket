@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance, useSwitchChain } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ethers } from 'ethers';
 import { 
@@ -103,8 +103,9 @@ const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${st
 const CUSD_DECIMALS = 6;
 
 export default function Home() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chainId } = useAccount();
   const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [billRecipient, setBillRecipient] = useState('');
   const [billAmount, setBillAmount] = useState('');
   const [billDescription, setBillDescription] = useState('');
@@ -116,6 +117,11 @@ export default function Home() {
   
   const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { switchChain } = useSwitchChain();
+
+  // Celo Sepolia chain ID
+  const CELO_SEPOLIA_CHAIN_ID = 447869;
+  const isCorrectChain = chainId === CELO_SEPOLIA_CHAIN_ID;
 
   // Use V2 if available, otherwise V1
   const agentAddress = useV2 ? AGENT_V2_ADDRESS : AGENT_V1_ADDRESS;
@@ -178,7 +184,7 @@ export default function Home() {
         setShowSuccess('Transaction cancelled');
       } else if (errorStr.includes('insufficient funds')) {
         setShowSuccess('Insufficient funds for gas');
-      } else if (errorStr.includes('chain')) {
+      } else if (errorStr.includes('chain') || errorStr.includes('network')) {
         setShowSuccess('Wrong network - switch to Celo Sepolia');
       } else {
         setShowSuccess(`Error: ${errorStr.slice(0, 50)}`);
@@ -186,6 +192,14 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 5000);
     }
   }, [writeError]);
+
+  // Check chain on connection
+  useEffect(() => {
+    if (isConnected && !isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia');
+      setTimeout(() => setShowSuccess(null), 5000);
+    }
+  }, [isConnected, isCorrectChain]);
 
   // Format cUSD
   const formatCUSD = (value: any) => {
@@ -221,9 +235,9 @@ export default function Home() {
   };
 
   const withdraw = async () => {
-    if (!depositAmount) return;
+    if (!withdrawAmount) return;
     try {
-      const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
+      const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -231,6 +245,10 @@ export default function Home() {
         args: [amountWei],
       });
     } catch (err) { console.error(err); }
+  };
+
+  const switchToCeloSepolia = () => {
+    switchChain({ chainId: CELO_SEPOLIA_CHAIN_ID });
   };
 
   const registerUser = async () => {
@@ -301,6 +319,12 @@ export default function Home() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
                 <Shield className="w-4 h-4 text-purple-400" />
                 <span className="text-sm text-gray-400">Verify identity →</span>
+              </div>
+            )}
+            {isConnected && isCorrectChain && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
+                <div className="w-2 h-2 rounded-full bg-green-400" />
+                <span className="text-sm text-green-400">Celo Sepolia</span>
               </div>
             )}
             {isConnected && useV2 ? (
@@ -517,6 +541,22 @@ export default function Home() {
       {isConnected && (
         <section className="px-4 py-8">
           <div className="max-w-6xl mx-auto">
+            {/* Network Warning - show when connected to wrong chain */}
+            {!isCorrectChain && (
+              <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <span className="text-red-400">Wrong network - switch to Celo Sepolia</span>
+                </div>
+                <button
+                  onClick={switchToCeloSepolia}
+                  className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold"
+                >
+                  Switch
+                </button>
+              </div>
+            )}
+
             {showSuccess && (
               <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
                 showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network')
@@ -708,14 +748,14 @@ export default function Home() {
                       <input
                         type="number"
                         placeholder="Amount (cUSD)"
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500"
                       />
                       
                       <button
                         onClick={withdraw}
-                        disabled={isPending || !depositAmount}
+                        disabled={isPending || !withdrawAmount}
                         className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold"
                       >
                         {isPending ? 'Confirm...' : 'Withdraw'}
