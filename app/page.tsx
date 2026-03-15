@@ -156,7 +156,7 @@ export default function Home() {
   // Debug logging - check what chain we're actually getting
   useEffect(() => {
     if (isConnected) {
-      console.log('[DEBUG] Connected. chainId:', chainId, 'Expected:', CELO_SEPOLIA_CHAIN_ID, 'Match:', isCorrectChain);
+      console.log('[DEBUG] Connected. chainId:', Number(chainId), 'Expected:', CELO_SEPOLIA_CHAIN_ID, 'Match:', isCorrectChain);
     }
   }, [chainId, isConnected, isCorrectChain]);
 
@@ -234,7 +234,7 @@ export default function Home() {
   // Handle write errors - very detailed
   useEffect(() => {
     if (writeError) {
-      console.error('[WRITE ERROR FULL]', JSON.stringify(writeError, null, 2));
+      console.error('[WRITE ERROR FULL]', String(writeError));
       const errorStr = String(writeError);
       console.error('[WRITE ERROR STRING]', errorStr);
       if (errorStr.includes('User rejected')) {
@@ -252,7 +252,7 @@ export default function Home() {
   useEffect(() => {
     // Only log for debugging, don't show warning
     if (isConnected && chainId) {
-      console.log('[CHAIN CHECK] chainId:', chainId, 'isCorrectChain:', isCorrectChain);
+      console.log('[CHAIN CHECK] chainId:', Number(chainId), 'isCorrectChain:', isCorrectChain);
     }
   }, [isConnected, chainId, isCorrectChain]);
 
@@ -270,7 +270,7 @@ export default function Home() {
     
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
-      console.log('[DEPOSIT] amountWei:', amountWei, 'agentAddress:', agentAddress);
+      console.log('[DEPOSIT] amountWei:', amountWei.toString(), 'agentAddress:', agentAddress);
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
