@@ -215,6 +215,17 @@ export default function Home() {
     } catch (err) { console.error(err); }
   };
 
+  const registerUser = async () => {
+    try {
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: 'registerUser',
+        args: [],
+      });
+    } catch (err) { console.error(err); }
+  };
+
   const createBill = async () => {
     if (!billRecipient || !billAmount || !billDescription) return;
     try {
@@ -267,6 +278,20 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* Self.xyz Verified Badge - shows when connected */}
+            {isConnected && address && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                <Shield className="w-4 h-4 text-purple-400" />
+                <a 
+                  href={`https://app.self.xyz/verify?address=${address}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-purple-400 hover:text-purple-300"
+                >
+                  Get Verified
+                </a>
+              </div>
+            )}
             {isConnected && useV2 ? (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30">
                 <Crown className="w-4 h-4 text-amber-400" />
@@ -288,10 +313,20 @@ export default function Home() {
             </div>
 
             <div className="max-w-4xl mx-auto text-center relative z-10">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm text-gray-300">v3.0 - Full Feature Set</span>
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              {/* Trust Badges */}
+              <div className="flex flex-wrap justify-center gap-3 mb-8">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
+                  <Shield className="w-4 h-4 text-green-400" />
+                  <span className="text-sm text-green-400">ERC-8004 Verified</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/30">
+                  <Globe className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm text-blue-400">Celo Native</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                  <Zap className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm text-purple-400">x402 Ready</span>
+                </div>
               </div>
               
               <h2 className="text-5xl md:text-7xl font-bold mb-6">
@@ -299,9 +334,27 @@ export default function Home() {
               </h2>
               
               <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                Autonomous savings, automated bills, yield farming, and more. 
-                Powered by ERC-8004 on Celo.
+                Automate your savings, pay bills on time, earn yield — all autonomously. 
+                Your money works harder while you sleep.
               </p>
+
+              {/* Live Stats Preview */}
+              <div className="flex flex-wrap justify-center gap-6 mb-10 p-4 glass rounded-2xl">
+                <div className="text-center">
+                  <p className="text-2xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
+                  <p className="text-sm text-gray-400">Total Saved</p>
+                </div>
+                <div className="w-px bg-white/10" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold gradient-text">{Number(totalBillsPaid)}</p>
+                  <p className="text-sm text-gray-400">Bills Paid</p>
+                </div>
+                <div className="w-px bg-white/10" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold gradient-text">{Number(actionCount)}</p>
+                  <p className="text-sm text-gray-400">Agent Actions</p>
+                </div>
+              </div>
 
               <div className="flex flex-wrap justify-center gap-4 mb-10">
                 {[
@@ -319,6 +372,29 @@ export default function Home() {
               </div>
 
               <p className="text-gray-500">Connect wallet to start</p>
+            </div>
+          </section>
+
+          {/* How It Works */}
+          <section className="px-4 py-16 bg-white/5">
+            <div className="max-w-4xl mx-auto">
+              <h3 className="text-3xl font-bold text-center mb-12">How It Works</h3>
+              
+              <div className="grid md:grid-cols-3 gap-8">
+                {[
+                  { step: '1', title: 'Connect Wallet', desc: 'Link your Celo wallet - we support any 4337 wallet', icon: Wallet },
+                  { step: '2', title: 'Set Preferences', desc: 'Choose savings goals, bills, and round-up amounts', icon: Settings },
+                  { step: '3', title: 'Auto-Pilot', desc: 'Agent handles everything autonomously', icon: Activity },
+                ].map((item, i) => (
+                  <div key={i} className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <item.icon className="w-8 h-8 text-green-400" />
+                    </div>
+                    <h4 className="font-bold mb-2">{item.title}</h4>
+                    <p className="text-sm text-gray-400">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
 
@@ -471,6 +547,30 @@ export default function Home() {
                 <p className="text-3xl font-bold">{Number(actionCount)}</p>
               </div>
             </div>
+
+            {/* Registration Prompt */}
+            {userRegistered === false && (
+              <div className="glass rounded-2xl p-6 mb-8 border-2 border-yellow-500/30">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+                      <Crown className="w-6 h-6 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-yellow-400">Complete Registration</p>
+                      <p className="text-sm text-gray-400">Register to unlock all agent features</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={registerUser}
+                    disabled={isPending}
+                    className="px-6 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 text-black font-bold"
+                  >
+                    {isPending ? 'Registering...' : 'Register Now'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Agent Status */}
             <div className="glass rounded-2xl p-6 mb-8">
