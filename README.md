@@ -1,13 +1,7 @@
 # 🤖 AutoPocket - Autonomous Savings & Bill Payment Agent
 
-**Celo "Build Agents for the Real World V2" Hackathon**
-
 An AI-powered autonomous agent that helps users automatically save spare change and manage recurring bill payments on Celo blockchain.
 
-## 🏆 Tracks
-
-- ✅ Track 1: Best Agent on Celo
-- ✅ Track 3: Highest Rank in 8004scan
 
 ## 💡 The Problem
 
