@@ -248,7 +248,6 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         
         userData[msg.sender].totalDeposited += totalDeposit;
         userData[msg.sender].roundUpBalance += _transactionAmount;
-        totalRoundUps[msg.sender] += remainder;
         userData[msg.sender].lastDepositTime = block.timestamp;
         
         totalSavings += totalDeposit;
@@ -443,8 +442,19 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         if (executedTransactions[txHash]) revert BillAlreadyExists();
         if (_nonce != nonce[msg.sender]) revert InvalidAmount();
         
-        // Simple signature verification (in production, use proper 4337 validation)
-        require(_signature.length == 65, "Invalid signature");
+        // Verify signature using ecrecover
+        require(_signature.length == 65, "Invalid signature length");
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", txHash));
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := calldataload(_signature.offset)
+            s := calldataload(add(_signature.offset, 32))
+            v := byte(0, calldataload(add(_signature.offset, 64)))
+        }
+        address signer = ecrecover(ethSignedHash, v, r, s);
+        require(signer == msg.sender, "Invalid signature");
         
         executedTransactions[txHash] = true;
         nonce[msg.sender]++;

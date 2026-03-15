@@ -107,7 +107,7 @@ const AGENT_V2_ABI = [
 ];
 
 // V2 Contract - deployed to Celo Sepolia
-const AGENT_V2_ADDRESS = '0xd1b544926e3e8761aD4c06605A7aA9689A169dF0' as `0x${string}`;
+const AGENT_V2_ADDRESS = '0x04E76Ba24A9E261905271d2afeA1E7075526b4f8' as `0x${string}`;
 // Fallback to V1 for now
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
@@ -138,6 +138,21 @@ export default function Home() {
   // Simple chain check - just verify it's the right number
   const isCorrectChain = chainId != null && (Number(chainId) === CELO_SEPOLIA_CHAIN_ID);
   
+  // Ensure we're on the right chain before any write
+  const ensureCorrectChain = async () => {
+    if (!isCorrectChain) {
+      try {
+        switchChain({ chainId: CELO_SEPOLIA_CHAIN_ID });
+        return false;
+      } catch (e) {
+        console.error('Failed to switch chain:', e);
+        setShowSuccess('Please switch to Celo Sepolia manually');
+        return false;
+      }
+    }
+    return true;
+  };
+  
   // Debug logging - check what chain we're actually getting
   useEffect(() => {
     if (isConnected) {
@@ -147,7 +162,8 @@ export default function Home() {
 
   // Use V2 if available, otherwise V1
   const agentAddress = useV2 ? AGENT_V2_ADDRESS : AGENT_V1_ADDRESS;
-  const abi = useV2 ? AGENT_V2_ABI : AGENT_V2_ABI; // Use V2 ABI for both for now
+  // Currently using V2 only - V1 ABI not defined, but we're on V2
+  const abi = AGENT_V2_ABI;
 
   // Read contract data
   const { data: agentStats } = useReadContract({
@@ -215,23 +231,20 @@ export default function Home() {
     }
   }, [isSuccess, hash]);
 
-  // Handle write errors - more detailed logging
+  // Handle write errors - very detailed
   useEffect(() => {
     if (writeError) {
-      console.error('[WRITE ERROR]', writeError);
+      console.error('[WRITE ERROR FULL]', JSON.stringify(writeError, null, 2));
       const errorStr = String(writeError);
+      console.error('[WRITE ERROR STRING]', errorStr);
       if (errorStr.includes('User rejected')) {
         setShowSuccess('Transaction cancelled');
       } else if (errorStr.includes('insufficient funds')) {
         setShowSuccess('Insufficient funds for gas');
-      } else if (errorStr.includes('chain') || errorStr.includes('network')) {
-        setShowSuccess('Wrong network - switch to Celo Sepolia');
-      } else if (errorStr.includes('Requested resource not')) {
-        setShowSuccess('Network error - check chain switch');
       } else {
-        setShowSuccess(`Error: ${errorStr.slice(0, 80)}`);
+        setShowSuccess(`Error: ${errorStr.slice(0, 100)}`);
       }
-      setTimeout(() => setShowSuccess(null), 8000);
+      setTimeout(() => setShowSuccess(null), 10000);
     }
   }, [writeError]);
 
@@ -252,15 +265,22 @@ export default function Home() {
   // Actions
   const deposit = async () => {
     if (!depositAmount) return;
+    const isOk = await ensureCorrectChain();
+    if (!isOk) return;
+    
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
+      console.log('[DEPOSIT] amountWei:', amountWei, 'agentAddress:', agentAddress);
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
         functionName: 'depositSavings',
         args: [amountWei],
       });
-    } catch (err) { console.error(err); }
+      console.log('[DEPOSIT] write called');
+    } catch (err) { 
+      console.error('[DEPOSIT ERROR]', err); 
+    }
   };
 
   const depositWithRoundUp = async () => {
@@ -278,6 +298,9 @@ export default function Home() {
 
   const withdraw = async () => {
     if (!withdrawAmount) return;
+    const isOk = await ensureCorrectChain();
+    if (!isOk) return;
+    
     try {
       const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
       write({

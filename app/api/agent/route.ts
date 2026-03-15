@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 
 // Contract configuration
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AGENT_ADDRESS || '0xE11D19503029Ed7D059A0022288FB88d61C7c3b4';
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AGENT_ADDRESS || '0xd1b544926e3e8761aD4c06605A7aA9689A169dF0';
 const RPC_URL = process.env.CELO_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org';
 
 // Token addresses (Celo Sepolia)
@@ -29,7 +29,7 @@ const ERC20_ABI = [
 
 // x402 Payment configuration
 const PAYMENT_TOKEN = CUSD_ADDRESS;
-const CHAIN_ID = 44787;
+const CHAIN_ID = 447869;
 
 // Service pricing (in smallest units = 0.001 cUSD)
 const SERVICES = {
