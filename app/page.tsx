@@ -212,9 +212,10 @@ export default function Home() {
     }
   }, [isSuccess, hash]);
 
-  // Handle write errors
+  // Handle write errors - more detailed logging
   useEffect(() => {
     if (writeError) {
+      console.error('[WRITE ERROR]', writeError);
       const errorStr = String(writeError);
       if (errorStr.includes('User rejected')) {
         setShowSuccess('Transaction cancelled');
@@ -222,10 +223,12 @@ export default function Home() {
         setShowSuccess('Insufficient funds for gas');
       } else if (errorStr.includes('chain') || errorStr.includes('network')) {
         setShowSuccess('Wrong network - switch to Celo Sepolia');
+      } else if (errorStr.includes('Requested resource not')) {
+        setShowSuccess('Network error - check chain switch');
       } else {
-        setShowSuccess(`Error: ${errorStr.slice(0, 50)}`);
+        setShowSuccess(`Error: ${errorStr.slice(0, 80)}`);
       }
-      setTimeout(() => setShowSuccess(null), 5000);
+      setTimeout(() => setShowSuccess(null), 8000);
     }
   }, [writeError]);
 
@@ -247,6 +250,11 @@ export default function Home() {
   // Actions
   const deposit = async () => {
     if (!depositAmount) return;
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       write({
@@ -260,6 +268,11 @@ export default function Home() {
 
   const depositWithRoundUp = async () => {
     if (!depositAmount) return;
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       write({
@@ -273,6 +286,11 @@ export default function Home() {
 
   const withdraw = async () => {
     if (!withdrawAmount) return;
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
       write({
@@ -289,6 +307,11 @@ export default function Home() {
   };
 
   const registerUser = async () => {
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       write({
         address: agentAddress,
@@ -301,6 +324,11 @@ export default function Home() {
 
   const createBill = async () => {
     if (!billRecipient || !billAmount || !billDescription) return;
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       const billId = ethers.id('bill_' + Date.now());
       const amountWei = ethers.parseUnits(billAmount, CUSD_DECIMALS);
@@ -317,6 +345,11 @@ export default function Home() {
     if (!sessionKeyInput || !ethers.isAddress(sessionKeyInput)) {
       setShowSuccess('Invalid address');
       setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
       return;
     }
     try {
@@ -336,6 +369,11 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       write({
         address: agentAddress,
@@ -349,6 +387,11 @@ export default function Home() {
 
   const setRoundUp = async () => {
     if (!roundUpThreshold) return;
+    if (!isCorrectChain) {
+      setShowSuccess('Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 5000);
+      return;
+    }
     try {
       const threshold = ethers.parseUnits(roundUpThreshold, CUSD_DECIMALS);
       write({
