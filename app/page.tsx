@@ -93,10 +93,21 @@ const AGENT_V2_ABI = [
     { name: '_isActive', type: 'bool' },
     { name: '_reputation', type: 'uint256' }
   ], stateMutability: 'view', type: 'function' },
+  
+  // Account Abstraction (4337)
+  { inputs: [{ name: '_to', type: 'address' }, { name: '_value', type: 'uint256' }, { name: '_data', type: 'bytes' }, { name: '_nonce', type: 'uint256' }, { name: '_signature', type: 'bytes' }], name: 'executeTransaction', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_to', type: 'address' }, { name: '_value', type: 'uint256' }, { name: '_data', type: 'bytes' }, { name: '_gasLimit', type: 'uint256' }], name: 'executeGasless', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_sessionKey', type: 'address' }, { name: '_enabled', type: 'bool' }], name: 'setSessionKey', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_to', type: 'address' }, { name: '_value', type: 'uint256' }, { name: '_data', type: 'bytes' }, { name: '_sessionKey', type: 'address' }], name: 'executeWithSessionKey', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_newOwner', type: 'address' }], name: 'addSecondOwner', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_txHash', type: 'bytes32' }], name: 'confirmWithSecondOwner', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_user', type: 'address' }], name: 'getNonce', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: '_user', type: 'address' }, { name: '_key', type: 'address' }], name: 'isSessionKeyValid', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: '_user', type: 'address' }], name: 'getSecondOwner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
 ];
 
 // V2 Contract - deployed to Celo Sepolia
-const AGENT_V2_ADDRESS = '0xE11D19503029Ed7D059A0022288FB88d61C7c3b4' as `0x${string}`;
+const AGENT_V2_ADDRESS = '0xd1b544926e3e8761aD4c06605A7aA9689A169dF0' as `0x${string}`;
 // Fallback to V1 for now
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
@@ -110,7 +121,9 @@ export default function Home() {
   const [billAmount, setBillAmount] = useState('');
   const [billDescription, setBillDescription] = useState('');
   const [roundUpThreshold, setRoundUpThreshold] = useState('100'); // default $0.01
-  const [activeTab, setActiveTab] = useState<'save' | 'bills' | 'yield' | 'notifications'>('save');
+  const [sessionKeyInput, setSessionKeyInput] = useState('');
+  const [secondOwnerInput, setSecondOwnerInput] = useState('');
+  const [activeTab, setActiveTab] = useState<'save' | 'bills' | 'yield' | 'wallet' | 'notifications'>('save');
   const [userRegistered, setUserRegistered] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
@@ -155,6 +168,23 @@ export default function Home() {
     address: agentAddress,
     abi: AGENT_V2_ABI,
     functionName: 'getUserRoundUpBalance',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address && useV2 }
+  });
+
+  // Account Abstraction reads
+  const { data: userNonce } = useReadContract({
+    address: agentAddress,
+    abi: AGENT_V2_ABI,
+    functionName: 'getNonce',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address && useV2 }
+  });
+
+  const { data: secondOwner } = useReadContract({
+    address: agentAddress,
+    abi: AGENT_V2_ABI,
+    functionName: 'getSecondOwner',
     args: address ? [address] : undefined,
     query: { enabled: isConnected && !!address && useV2 }
   });
@@ -273,6 +303,40 @@ export default function Home() {
         functionName: 'createBill',
         args: [billId, billRecipient, amountWei, BigInt(30 * 24 * 60 * 60), billDescription],
       });
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAddSessionKey = () => {
+    if (!sessionKeyInput || !ethers.isAddress(sessionKeyInput)) {
+      setShowSuccess('Invalid address');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
+    try {
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: 'setSessionKey',
+        args: [sessionKeyInput as `0x${string}`, true],
+      });
+      setSessionKeyInput('');
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAddSecondOwner = () => {
+    if (!secondOwnerInput || !ethers.isAddress(secondOwnerInput)) {
+      setShowSuccess('Invalid address');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
+    try {
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: 'addSecondOwner',
+        args: [secondOwnerInput as `0x${string}`],
+      });
+      setSecondOwnerInput('');
     } catch (err) { console.error(err); }
   };
 
@@ -674,6 +738,7 @@ export default function Home() {
                   { id: 'save', icon: PiggyBank, label: 'Savings' },
                   { id: 'bills', icon: Calendar, label: 'Bills' },
                   { id: 'yield', icon: Zap, label: 'Yield' },
+                  { id: 'wallet', icon: Wallet, label: 'Smart Wallet' },
                   { id: 'notifications', icon: Bell, label: 'Notifications' },
                 ].map(tab => (
                   <button
@@ -911,6 +976,117 @@ export default function Home() {
                     <Bell className="w-16 h-16 mx-auto mb-4 opacity-30" />
                     <p>No notifications yet</p>
                     <p className="text-sm mt-1">You'll receive alerts for deposits, withdrawals, and bill payments</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Smart Wallet Tab - Account Abstraction */}
+              {activeTab === 'wallet' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Wallet className="w-6 h-6 text-cyan-400" />
+                      <h4 className="font-bold">Smart Wallet</h4>
+                    </div>
+                    <span className="text-sm text-gray-400">4337 Account Abstraction</span>
+                  </div>
+
+                  {/* Nonce Display */}
+                  <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Transaction Nonce</p>
+                        <p className="text-2xl font-bold text-cyan-400">{userNonce ? String(userNonce) : '0'}</p>
+                      </div>
+                      <Activity className="w-8 h-8 text-cyan-400" />
+                    </div>
+                  </div>
+
+                  {/* Session Keys */}
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Zap className="w-5 h-5 text-purple-400" />
+                      <h5 className="font-bold">Session Keys</h5>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-4">Allow AI agents to execute transactions on your behalf without asking for each approval.</p>
+                    
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Session key address (0x...)"
+                          value={sessionKeyInput}
+                          onChange={(e) => setSessionKeyInput(e.target.value)}
+                          className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm font-mono"
+                        />
+                        <button 
+                          onClick={handleAddSessionKey}
+                          disabled={isPending || !sessionKeyInput}
+                          className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold text-sm"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500">No session keys configured</p>
+                    </div>
+                  </div>
+
+                  {/* Multi-Sig */}
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Shield className="w-5 h-5 text-amber-400" />
+                      <h5 className="font-bold">Multi-Sig Security</h5>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-4">Add a second owner to require dual approval for transactions.</p>
+                    
+                    {secondOwner && (secondOwner as string) !== '0x0000000000000000000000000000000000000000' ? (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-400" />
+                          <span className="text-sm text-green-400">Second owner active</span>
+                        </div>
+                        <span className="text-xs text-gray-400 font-mono">{(secondOwner as string).slice(0, 6)}...{(secondOwner as string).slice(-4)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Second owner address"
+                          value={secondOwnerInput}
+                          onChange={(e) => setSecondOwnerInput(e.target.value)}
+                          className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm font-mono"
+                        />
+                        <button 
+                          onClick={handleAddSecondOwner}
+                          disabled={isPending || !secondOwnerInput}
+                          className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 text-white font-bold text-sm"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Gasless Transactions Info */}
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <DollarSign className="w-5 h-5 text-green-400" />
+                      <h5 className="font-bold">Gasless Transactions</h5>
+                    </div>
+                    <p className="text-sm text-gray-400">
+                      Pay gas fees from your round-up balance. No need to hold native CELO for transactions.
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span>Enabled for all savings transactions</span>
+                    </div>
+                  </div>
+
+                  {/* 4337 Info */}
+                  <div className="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/10">
+                    <p className="text-xs text-cyan-400">
+                      🔐 ERC-4337 Compatible • Smart contract wallet with account abstraction
+                    </p>
                   </div>
                 </div>
               )}

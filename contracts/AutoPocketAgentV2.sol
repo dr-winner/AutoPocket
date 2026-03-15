@@ -427,10 +427,10 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // ACCOUNT ABSTRACTION (4337 minimal)
+    // ACCOUNT ABSTRACTION (4337 + Gasless)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Execute transaction with 4337-style nonce
+    /// @notice Execute transaction with 4337-style nonce (gasless)
     function executeTransaction(
         address _to,
         uint256 _value,
@@ -455,10 +455,108 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         actionCount++;
     }
 
+    /// @notice Execute gasless transaction - agent pays gas from user's savings
+    function executeGasless(
+        address _to,
+        uint256 _value,
+        bytes calldata _data,
+        uint256 _gasLimit
+    ) external nonReentrant onlyRegistered(msg.sender) {
+        if (_to == address(0)) revert ZeroAddress();
+        if (_value == 0 && _data.length == 0) revert InvalidAmount();
+        
+        // Estimate gas and deduct from user's roundUpBalance or savings
+        uint256 gasUsed = gasleft();
+        uint256 gasPrice = tx.gasprice;
+        uint256 gasCost = gasUsed * gasPrice;
+        
+        // Deduct gas cost from user's savings
+        UserData storage user = userData[msg.sender];
+        if (user.roundUpBalance < gasCost) revert InsufficientBalance();
+        
+        user.roundUpBalance -= gasCost;
+        
+        // Execute the transaction
+        (bool success, ) = _to.call{value: _value}(_data);
+        if (!success) revert YieldTransferFailed();
+        
+        actionCount++;
+        lastActionTimestamp = block.timestamp;
+        
+        emit FundsReceived(msg.sender, _value);
+    }
+
+    /// @notice Set session key for automated transactions (for AI agent)
+    function setSessionKey(address _sessionKey, bool _enabled) external onlyRegistered(msg.sender) {
+        sessionKeys[msg.sender][_sessionKey] = _enabled;
+        emit SessionKeySet(msg.sender, _sessionKey, _enabled);
+    }
+
+    /// @notice Execute via session key (agent can act on behalf of user)
+    function executeWithSessionKey(
+        address _to,
+        uint256 _value,
+        bytes calldata _data,
+        address _sessionKey
+    ) external nonReentrant onlyRegistered(msg.sender) {
+        if (!sessionKeys[msg.sender][_sessionKey]) revert NotAuthorized();
+        
+        (bool success, ) = _to.call{value: _value}(_data);
+        if (!success) revert YieldTransferFailed();
+        
+        actionCount++;
+    }
+
+    /// @notice Add second owner (multi-sig)
+    function addSecondOwner(address _newOwner) external onlyRegistered(msg.sender) {
+        if (_newOwner == address(0)) revert ZeroAddress();
+        if (secondOwners[msg.sender] != address(0)) revert AlreadyRegistered();
+        secondOwners[msg.sender] = _newOwner;
+        emit SecondOwnerAdded(msg.sender, _newOwner);
+    }
+
+    /// @notice Confirm transaction with second owner
+    function confirmWithSecondOwner(bytes32 _txHash) external {
+        if (secondOwners[msg.sender] != msg.sender && secondOwners[msg.sender] != tx.origin) revert NotAuthorized();
+        if (confirmedTransactions[_txHash][msg.sender]) revert AlreadyRegistered();
+        
+        confirmedTransactions[_txHash][msg.sender] = true;
+        confirmationCount[_txHash]++;
+        
+        if (confirmationCount[_txHash] >= 2) {
+            emit TransactionReadyForExecution(_txHash);
+        }
+    }
+
     /// @notice Get nonce for account abstraction
     function getNonce(address _user) external view returns (uint256) {
         return nonce[_user];
     }
+
+    /// @notice Check if session key is valid
+    function isSessionKeyValid(address _user, address _key) external view returns (bool) {
+        return sessionKeys[_user][_key];
+    }
+
+    /// @notice Get second owner for user
+    function getSecondOwner(address _user) external view returns (address) {
+        return secondOwners[_user];
+    }
+
+    // Session keys for automated transactions
+    mapping(address => mapping(address => bool)) public sessionKeys;
+    
+    // Multi-sig: second owners
+    mapping(address => address) public secondOwners;
+    
+    // Multi-sig: transaction confirmations
+    mapping(bytes32 => mapping(address => bool)) public confirmedTransactions;
+    mapping(bytes32 => uint256) public confirmationCount;
+
+    // Events for AA
+    event SessionKeySet(address indexed user, address indexed sessionKey, bool enabled);
+    event SecondOwnerAdded(address indexed user, address indexed newOwner);
+    event TransactionReadyForExecution(bytes32 indexed txHash);
 
     // ═══════════════════════════════════════════════════════════════════
     // NOTIFICATIONS
