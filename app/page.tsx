@@ -107,7 +107,7 @@ const AGENT_V2_ABI = [
 ];
 
 // V2 Contract - deployed to Celo Sepolia
-const AGENT_V2_ADDRESS = '0x04E76Ba24A9E261905271d2afeA1E7075526b4f8' as `0x${string}`;
+const AGENT_V2_ADDRESS = '0x4F717F2160BF3DE24cDdc917F1c43097915eA2D0' as `0x${string}`;
 // Fallback to V1 for now
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 

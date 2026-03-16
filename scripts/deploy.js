@@ -7,7 +7,7 @@ async function main() {
   console.log("Deploying from:", signer.address);
   
   // ethers v6 API
-  const AutoPocketAgent = await hre.ethers.getContractFactory("AutoPocketAgent");
+  const AutoPocketAgent = await hre.ethers.getContractFactory("AutoPocketAgentV2");
   const agent = await AutoPocketAgent.connect(signer).deploy();
   
   await agent.waitForDeployment();
