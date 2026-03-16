@@ -231,20 +231,20 @@ export default function Home() {
     }
   }, [isSuccess, hash]);
 
-  // Handle write errors - very detailed
+  // Handle write errors
   useEffect(() => {
     if (writeError) {
-      console.error('[WRITE ERROR FULL]', String(writeError));
-      const errorStr = String(writeError);
-      console.error('[WRITE ERROR STRING]', errorStr);
-      if (errorStr.includes('User rejected')) {
+      const errStr = String(writeError);
+      if (errStr.includes('User rejected') || errStr.includes('rejected')) {
         setShowSuccess('Transaction cancelled');
-      } else if (errorStr.includes('insufficient funds')) {
-        setShowSuccess('Insufficient funds for gas');
+      } else if (errStr.includes('insufficient funds')) {
+        setShowSuccess('Insufficient cUSD balance');
+      } else if (errStr.includes('ContractFunctionExecutionError')) {
+        setShowSuccess('Transaction failed. Contract may be inactive.');
       } else {
-        setShowSuccess(`Error: ${errorStr.slice(0, 100)}`);
+        setShowSuccess('Transaction failed');
       }
-      setTimeout(() => setShowSuccess(null), 10000);
+      setTimeout(() => setShowSuccess(null), 5000);
     }
   }, [writeError]);
 
