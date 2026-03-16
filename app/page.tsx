@@ -563,15 +563,26 @@ export default function Home() {
                     desc: 'Earn points for every deposit - unlock perks',
                     color: 'amber'
                   },
-                ].map((feature, i) => (
-                  <div key={i} className="glass rounded-2xl p-6 hover:scale-[1.02] transition-transform cursor-pointer">
-                    <div className={`w-12 h-12 rounded-xl bg-${feature.color}-500/20 flex items-center justify-center mb-4`}>
-                      <feature.icon className={`w-6 h-6 text-${feature.color}-400`} />
+                ].map((feature, i) => {
+                  const colorClasses: Record<string, string> = {
+                    green: 'bg-green-500/20 text-green-400',
+                    purple: 'bg-purple-500/20 text-purple-400',
+                    yellow: 'bg-yellow-500/20 text-yellow-400',
+                    blue: 'bg-blue-500/20 text-blue-400',
+                    cyan: 'bg-cyan-500/20 text-cyan-400',
+                    amber: 'bg-amber-500/20 text-amber-400',
+                  };
+                  const [bgClass, textClass] = colorClasses[feature.color]?.split(' ') || ['bg-gray-500/20', 'text-gray-400'];
+                  return (
+                    <div key={i} className="glass rounded-2xl p-6 hover:scale-[1.02] transition-transform cursor-pointer">
+                      <div className={`w-12 h-12 rounded-xl ${bgClass} flex items-center justify-center mb-4`}>
+                        <feature.icon className={`w-6 h-6 ${textClass}`} />
+                      </div>
+                      <h4 className="text-lg font-bold mb-2">{feature.title}</h4>
+                      <p className="text-gray-400 text-sm">{feature.desc}</p>
                     </div>
-                    <h4 className="text-lg font-bold mb-2">{feature.title}</h4>
-                    <p className="text-gray-400 text-sm">{feature.desc}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>
