@@ -264,7 +264,12 @@ export default function Home() {
 
   // Actions
   const deposit = async () => {
-    if (!depositAmount) return;
+    const amount = parseFloat(depositAmount);
+    if (!depositAmount || isNaN(amount) || amount <= 0) {
+      setShowSuccess('Please enter a valid amount');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
     const isOk = await ensureCorrectChain();
     if (!isOk) return;
     
@@ -284,7 +289,12 @@ export default function Home() {
   };
 
   const depositWithRoundUp = async () => {
-    if (!depositAmount) return;
+    const amount = parseFloat(depositAmount);
+    if (!depositAmount || isNaN(amount) || amount <= 0) {
+      setShowSuccess('Please enter a valid amount');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       write({
@@ -297,7 +307,12 @@ export default function Home() {
   };
 
   const withdraw = async () => {
-    if (!withdrawAmount) return;
+    const amount = parseFloat(withdrawAmount);
+    if (!withdrawAmount || isNaN(amount) || amount <= 0) {
+      setShowSuccess('Please enter a valid amount');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
     const isOk = await ensureCorrectChain();
     if (!isOk) return;
     
@@ -328,7 +343,22 @@ export default function Home() {
   };
 
   const createBill = async () => {
-    if (!billRecipient || !billAmount || !billDescription) return;
+    const amount = parseFloat(billAmount);
+    if (!billRecipient || !billAmount || !billDescription) {
+      setShowSuccess('Please fill all fields');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
+    if (!ethers.isAddress(billRecipient)) {
+      setShowSuccess('Invalid recipient address');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      setShowSuccess('Invalid amount');
+      setTimeout(() => setShowSuccess(null), 3000);
+      return;
+    }
     try {
       const billId = ethers.id('bill_' + Date.now());
       const amountWei = ethers.parseUnits(billAmount, CUSD_DECIMALS);
