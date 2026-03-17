@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   description: '🤖 AI-powered autonomous savings & bill payment agent for Celo. ERC-8004 compliant.',
 };
 
+// Force dynamic to prevent SSR issues with browser-only APIs (indexedDB, etc.)
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {

@@ -9,8 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 
 // Contract configuration
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AGENT_ADDRESS || '0xd1b544926e3e8761aD4c06605A7aA9689A169dF0';
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AGENT_ADDRESS || '0x4F717F2160BF3DE24cDdc917F1c43097915eA2D0';
 const RPC_URL = process.env.CELO_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org';
+
+// OpenRouter configuration - Best cost-effective: DeepSeek V3
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const AI_MODEL = 'deepseek/deepseek-chat'; // Best cost-effective: ~$0.14/1M input, $0.28/1M output
 
 // Token addresses (Celo Sepolia)
 const CUSD_ADDRESS = '0x765de816845861e75a25fca122bb6898b8b1272a';
@@ -37,7 +41,62 @@ const SERVICES = {
   'user-savings': { price: 1, name: 'Get User Savings' },
   'reward-points': { price: 1, name: 'Get Reward Points' },
   'premium-data': { price: 10, name: 'Premium Agent Data' },
+  'ai-chat': { price: 1, name: 'AI Assistant Chat' },
 };
+
+// AI Assistant function using DeepSeek (cost-effective)
+async function getAIResponse(userMessage: string, context?: string): Promise<string> {
+  if (!OPENROUTER_API_KEY) {
+    return "AI service not configured. Please set OPENROUTER_API_KEY.";
+  }
+
+  const systemPrompt = `You are AutoPocket AI Assistant, an autonomous savings agent for Celo blockchain. 
+You help users with:
+- Savings management (deposit, withdraw, auto-save)
+- Bill payments and scheduling
+- Yield farming and DeFi
+- Account abstraction and smart wallets
+
+Contract: ${CONTRACT_ADDRESS}
+Network: Celo Sepolia (chain 447869)
+cUSD: ${CUSD_ADDRESS}
+
+${context ? `User context: ${context}` : ''}
+
+Be concise, helpful, and focused on DeFi/savings.`;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://autopocket.vercel.app',
+        'X-Title': 'AutoPocket',
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('OpenRouter error:', error);
+      return "Sorry, I had trouble processing that request.";
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "No response generated.";
+  } catch (error) {
+    console.error('AI error:', error);
+    return "Sorry, I encountered an error. Please try again.";
+  }
+}
 
 function parsePaymentHeader(headerValue: string | null): any {
   if (!headerValue) return null;
@@ -213,6 +272,37 @@ export async function GET(request: NextRequest) {
           payer: payment.payer,
         },
       });
+
+    case 'ai':
+      // AI Chat - uses DeepSeek (cost-effective)
+      const message = searchParams.get('message');
+      if (!message) {
+        return NextResponse.json(
+          { error: 'Missing message parameter' },
+          { status: 400 }
+        );
+      }
+      
+      // Get user context if provided
+      const userContext = user ? `User address: ${user}` : '';
+      
+      try {
+        const aiResponse = await getAIResponse(message, userContext);
+        
+        return NextResponse.json({
+          success: true,
+          data: {
+            message: aiResponse,
+            model: AI_MODEL,
+            service: 'DeepSeek V3 (cost-effective)',
+          },
+        });
+      } catch (error) {
+        return NextResponse.json(
+          { error: 'AI service failed' },
+          { status: 500 }
+        );
+      }
 
     default:
       // Default: return agent status (free)
