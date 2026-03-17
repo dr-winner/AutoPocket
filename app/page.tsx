@@ -477,45 +477,47 @@ export default function Home() {
 
   return (
     <main className="min-h-screen animated-bg">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-400 to-purple-600 flex items-center justify-center">
-              <PiggyBank className="w-6 h-6 text-white" />
+      {/* Header - Mobile optimized */}
+      <header className="border-b border-white/10 bg-black/40 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-3 py-3">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-400 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <PiggyBank className="w-5 h-5 text-white" />
+              </div>
+              <div className="hidden sm:block">
+                <h1 className="text-lg font-bold gradient-text">AutoPocket</h1>
+                <p className="text-[10px] text-gray-400">Autonomous Savings</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold gradient-text">AutoPocket</h1>
-              <p className="text-xs text-gray-400">Autonomous Savings Agent</p>
+            
+            {/* Status badges - mobile friendly */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+              {isConnected && isCorrectChain && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/20 border border-green-500/30 flex-shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  <span className="text-[10px] sm:text-xs text-green-400 hidden sm:inline">Celo</span>
+                </div>
+              )}
+              {isConnected && !isCorrectChain && chainId && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500/20 border border-red-500/30 flex-shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                  <span className="text-[10px] text-red-400">Wrong chain</span>
+                </div>
+              )}
+              {isConnected && useV2 && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 flex-shrink-0">
+                  <Crown className="w-3 h-3 text-amber-400" />
+                  <span className="text-[10px] font-bold text-amber-400">{rewardPoints ? String(rewardPoints) : '0'}</span>
+                </div>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Self.xyz Verified Badge - shows when connected */}
-            {isConnected && address && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
-                <Shield className="w-4 h-4 text-purple-400" />
-                <span className="text-sm text-gray-400">Verify identity →</span>
-              </div>
-            )}
-            {isConnected && isCorrectChain && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
-                <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-sm text-green-400">Celo Sepolia</span>
-              </div>
-            )}
-            {isConnected && !isCorrectChain && chainId && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30">
-                <div className="w-2 h-2 rounded-full bg-red-400" />
-                <span className="text-sm text-red-400">Wrong: {Number(chainId)}</span>
-              </div>
-            )}
-            {isConnected && useV2 ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30">
-                <Crown className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-bold text-amber-400">{rewardPoints ? String(rewardPoints) : '0'} pts</span>
-              </div>
-            ) : null}
-            <ConnectButton />
+            
+            {/* Connect Button */}
+            <div className="flex-shrink-0">
+              <ConnectButton />
+            </div>
           </div>
         </div>
       </header>
@@ -523,36 +525,35 @@ export default function Home() {
       {/* LANDING PAGE */}
       {!isConnected && (
         <>
-          <section className="relative py-28 px-4 overflow-hidden">
+          <section className="relative py-16 sm:py-24 px-3 sm:px-4 overflow-hidden">
             <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-green-500/20 rounded-full blur-3xl" />
-              <div className="absolute -bottom-1/2 -left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
+              <div className="absolute -top-1/2 -right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-green-500/20 rounded-full blur-3xl" />
+              <div className="absolute -bottom-1/2 -left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-purple-500/20 rounded-full blur-3xl" />
             </div>
 
             <div className="max-w-4xl mx-auto text-center relative z-10">
-              {/* Trust Badges */}
-              <div className="flex flex-wrap justify-center gap-3 mb-8">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
-                  <Shield className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-green-400">ERC-8004 Verified</span>
+              {/* Trust Badges - mobile optimized */}
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30">
+                  <Shield className="w-3.5 h-3.5 text-green-400" />
+                  <span className="text-xs sm:text-sm text-green-400">ERC-8004</span>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/30">
-                  <Globe className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm text-blue-400">Celo Native</span>
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30">
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs sm:text-sm text-blue-400">Celo</span>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
-                  <Zap className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm text-purple-400">x402 Ready</span>
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
+                  <Zap className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs sm:text-sm text-purple-400">x402</span>
                 </div>
               </div>
               
-              <h2 className="text-5xl md:text-7xl font-bold mb-6">
+              <h2 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6">
                 Your <span className="gradient-text">AI Financial</span> Agent
               </h2>
               
-              <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                Automate your savings, pay bills on time, earn yield — all autonomously. 
-                Your money works harder while you sleep.
+              <p className="text-base sm:text-xl text-gray-400 mb-6 sm:mb-8 max-w-xl sm:max-w-2xl mx-auto">
+                Automate savings, pay bills, earn yield — autonomously.
               </p>
 
               <div className="flex flex-wrap justify-center gap-4 mb-10">
@@ -575,22 +576,22 @@ export default function Home() {
           </section>
 
           {/* How It Works */}
-          <section className="px-4 py-16">
+          <section className="px-3 sm:px-4 py-12 sm:py-16">
             <div className="max-w-4xl mx-auto">
-              <h3 className="text-3xl font-bold text-center mb-12">How It Works</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">How It Works</h3>
               
-              <div className="grid md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                 {[
-                  { step: '1', title: 'Connect Wallet', desc: 'Link your Celo wallet - we support any 4337 wallet', icon: Wallet },
-                  { step: '2', title: 'Set Preferences', desc: 'Choose savings goals, bills, and round-up amounts', icon: Settings },
+                  { step: '1', title: 'Connect Wallet', desc: 'Link your Celo wallet - any 4337 wallet', icon: Wallet },
+                  { step: '2', title: 'Set Preferences', desc: 'Choose savings goals, bills, round-up amounts', icon: Settings },
                   { step: '3', title: 'Auto-Pilot', desc: 'Agent handles everything autonomously', icon: Activity },
                 ].map((item, i) => (
                   <div key={i} className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <item.icon className="w-8 h-8 text-green-400" />
+                    <div className="w-12 h-12 sm:w-16 mx-auto mb-3 sm:mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <item.icon className="w-6 h-6 sm:w-8 text-green-400" />
                     </div>
-                    <h4 className="font-bold mb-2">{item.title}</h4>
-                    <p className="text-sm text-gray-400">{item.desc}</p>
+                    <h4 className="font-bold mb-1 sm:mb-2 text-sm sm:text-base">{item.title}</h4>
+                    <p className="text-xs sm:text-sm text-gray-400">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -598,11 +599,11 @@ export default function Home() {
           </section>
 
           {/* Features Grid */}
-          <section className="px-4 py-16">
+          <section className="px-3 sm:px-4 py-12 sm:py-16">
             <div className="max-w-6xl mx-auto">
-              <h3 className="text-3xl font-bold text-center mb-12">Agent Capabilities</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Agent Capabilities</h3>
               
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[
                   { 
                     icon: Target, 
@@ -676,22 +677,22 @@ export default function Home() {
                   </div>
                 </div>
                 
-                <div className="grid md:grid-cols-4 gap-6 text-center">
-                  <div>
-                    <p className="text-3xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
-                    <p className="text-gray-400 text-sm mt-1">Total Saved</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 text-center">
+                  <div className="p-2">
+                    <p className="text-xl sm:text-3xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Total Saved</p>
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold gradient-text">{Number(totalBillsPaid)}</p>
-                    <p className="text-gray-400 text-sm mt-1">Bills Paid</p>
+                  <div className="p-2">
+                    <p className="text-xl sm:text-3xl font-bold gradient-text">{Number(totalBillsPaid)}</p>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Bills Paid</p>
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold gradient-text">{Number(actionCount)}</p>
-                    <p className="text-gray-400 text-sm mt-1">Actions</p>
+                  <div className="p-2">
+                    <p className="text-xl sm:text-3xl font-bold gradient-text">{Number(actionCount)}</p>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Actions</p>
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold gradient-text">{Number(reputation)}</p>
-                    <p className="text-gray-400 text-sm mt-1">Reputation</p>
+                  <div className="p-2">
+                    <p className="text-xl sm:text-3xl font-bold gradient-text">{Number(reputation)}</p>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Reputation</p>
                   </div>
                 </div>
               </div>
@@ -758,33 +759,33 @@ export default function Home() {
             )}
 
             {/* Stats */}
-            <div className="grid md:grid-cols-4 gap-4 mb-8">
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <Wallet className="w-5 h-5 text-green-400" />
-                  <span className="text-gray-400 text-sm">Balance</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+              <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className="w-4 h-4 text-green-400" />
+                  <span className="text-gray-400 text-xs">Balance</span>
                 </div>
-                <p className="text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(userBalance)}`}</p>
+                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(userBalance)}`}</p>
               </div>
               
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <TrendingUp className="w-5 h-5 text-green-400" />
-                  <span className="text-gray-400 text-sm">Total Deposited</span>
+              <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className="text-gray-400 text-xs">Deposited</span>
                 </div>
-                <p className="text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(totalDeposited)}`}</p>
+                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(totalDeposited)}`}</p>
               </div>
               
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <Calendar className="w-5 h-5 text-purple-400" />
-                  <span className="text-gray-400 text-sm">Bills Paid</span>
+              <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar className="w-4 h-4 text-purple-400" />
+                  <span className="text-gray-400 text-xs">Bills Paid</span>
                 </div>
-                <p className="text-3xl font-bold">{Number(totalBillsPaid)}</p>
+                <p className="text-xl sm:text-3xl font-bold">{Number(totalBillsPaid)}</p>
               </div>
               
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-2">
+              <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-1">
                   <Activity className="w-5 h-5 text-yellow-400" />
                   <span className="text-gray-400 text-sm">Network Actions</span>
                 </div>
@@ -843,28 +844,30 @@ export default function Home() {
 
             {/* Main Dashboard */}
             <div className="glass rounded-2xl p-8">
-              {/* Tabs */}
-              <div className="flex gap-2 mb-6 border-b border-white/10 pb-4 overflow-x-auto">
-                {[
-                  { id: 'save', icon: PiggyBank, label: 'Savings' },
-                  { id: 'bills', icon: Calendar, label: 'Bills' },
-                  { id: 'yield', icon: Zap, label: 'Yield' },
-                  { id: 'wallet', icon: Wallet, label: 'Smart Wallet' },
-                  { id: 'notifications', icon: Bell, label: 'Notifications' },
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                      activeTab === tab.id 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <tab.icon className="w-5 h-5" />
-                    {tab.label}
-                  </button>
-                ))}
+              {/* Tabs - Fixed mobile scroll */}
+              <div className="mb-6 border-b border-white/10 pb-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+                  {[
+                    { id: 'save', icon: PiggyBank, label: 'Savings' },
+                    { id: 'bills', icon: Calendar, label: 'Bills' },
+                    { id: 'yield', icon: Zap, label: 'Yield' },
+                    { id: 'wallet', icon: Wallet, label: 'Wallet' },
+                    { id: 'notifications', icon: Bell, label: 'Alerts' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                        activeTab === tab.id 
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                          : 'text-gray-400 hover:text-white bg-white/5'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      <span className="text-sm font-medium">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Savings Tab */}
