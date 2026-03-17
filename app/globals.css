@@ -63,3 +63,40 @@ body {
     background-position: 0% 50%;
   }
 }
+
+/* Mobile UI polish */
+@layer utilities {
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Touch-friendly tap targets */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Smooth touch */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Better input touch */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* RainbowKit mobile overrides */
+@media (max-width: 640px) {
+  .rainbow-modal {
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+}

@@ -514,9 +514,11 @@ export default function Home() {
               )}
             </div>
             
-            {/* Connect Button */}
+            {/* Connect Button - Custom wrapper */}
             <div className="flex-shrink-0">
-              <ConnectButton />
+              <div className="[&_.rainbow-button]:!py-1.5 [&_.rainbow-button]:!px-3 [&_.rainbow-button]:!text-xs sm:[&_.rainbow-button]:!py-2 sm:[&_.rainbow-button]:!px-4 sm:[&_.rainbow-button]:!text-sm [&_.rainbow-account-button]:!py-1.5">
+                <ConnectButton />
+              </div>
             </div>
           </div>
         </div>
@@ -556,22 +558,29 @@ export default function Home() {
                 Automate savings, pay bills, earn yield — autonomously.
               </p>
 
-              <div className="flex flex-wrap justify-center gap-4 mb-10">
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-10 px-2">
                 {[
-                  { icon: Target, text: 'Round-up Savings', color: 'text-green-400' },
-                  { icon: Calendar, text: 'Auto Bill Pay', color: 'text-purple-400' },
-                  { icon: Zap, text: 'Yield Farming', color: 'text-yellow-400' },
-                  { icon: Bell, text: 'Smart Notifications', color: 'text-blue-400' },
-                  { icon: Shield, text: 'Account Abstraction', color: 'text-cyan-400' },
+                  { icon: Target, text: 'Round-up', color: 'text-green-400' },
+                  { icon: Calendar, text: 'Bill Pay', color: 'text-purple-400' },
+                  { icon: Zap, text: 'Yield', color: 'text-yellow-400' },
+                  { icon: Bell, text: 'Alerts', color: 'text-blue-400' },
+                  { icon: Shield, text: 'AA', color: 'text-cyan-400' },
                 ].map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5">
-                    <f.icon className={`w-4 h-4 ${f.color}`} />
-                    <span className="text-sm">{f.text}</span>
+                  <div key={i} className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/5">
+                    <f.icon className={`w-3.5 h-3.5 ${f.color}`} />
+                    <span className="text-xs sm:text-sm">{f.text}</span>
                   </div>
                 ))}
               </div>
 
-              <p className="text-gray-500">Connect wallet to start</p>
+              {/* CTA Button */}
+              <div className="mt-6 sm:mt-8">
+                <div className="inline-block">
+                  <div className="[&_.rainbow-button]:!py-3 [&_.rainbow-button]:!px-8 [&_.rainbow-button]:!text-base [&_.rainbow-button]:!rounded-xl [&_.rainbow-button]:!font-bold">
+                    <ConnectButton />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -872,17 +881,17 @@ export default function Home() {
 
               {/* Savings Tab */}
               {activeTab === 'save' && (
-                <div className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {/* Deposit */}
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-                          <ArrowUpCircle className="w-6 h-6 text-green-400" />
+                        <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                          <ArrowUpCircle className="w-5 sm:w-6 h-5 sm:h-6 text-green-400" />
                         </div>
                         <div>
-                          <h4 className="font-bold">Deposit</h4>
-                          <p className="text-sm text-gray-400">Add funds to savings</p>
+                          <h4 className="font-bold text-sm sm:text-base">Deposit</h4>
+                          <p className="text-xs sm:text-sm text-gray-400">Add funds to savings</p>
                         </div>
                       </div>
                       
@@ -891,7 +900,7 @@ export default function Home() {
                         placeholder="Amount (cUSD)"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500"
+                        className="w-full px-4 py-3 sm:py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-base"
                       />
                       
                       <button
@@ -905,25 +914,25 @@ export default function Home() {
                           });
                           setShowSuccess('Approve cUSD in wallet');
                         }}
-                        className="w-full py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold"
+                        className="w-full py-2.5 sm:py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold"
                       >
-                        🔓 Approve cUSD (first time only)
+                        🔓 Approve cUSD (first time)
                       </button>
                       
                       <div className="flex gap-2">
                         <button
                           onClick={deposit}
                           disabled={isPending || !depositAmount}
-                          className="flex-1 py-3 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold"
+                          className="flex-1 py-3 sm:py-4 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold text-sm sm:text-base"
                         >
-                          {isPending ? 'Confirm...' : 'Deposit'}
+                          {isPending ? '...' : 'Deposit'}
                         </button>
                         <button
                           onClick={depositWithRoundUp}
                           disabled={isPending || !depositAmount}
-                          className="flex-1 py-3 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold"
+                          className="flex-1 py-3 sm:py-4 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold text-sm sm:text-base"
                         >
-                          {isPending ? '...' : 'Deposit + Round-Up'}
+                          {isPending ? '...' : 'Round-Up'}
                         </button>
                       </div>
                     </div>
