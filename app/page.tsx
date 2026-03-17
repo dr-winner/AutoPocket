@@ -125,11 +125,15 @@ export default function Home() {
   const [secondOwnerInput, setSecondOwnerInput] = useState('');
   const [activeTab, setActiveTab] = useState<'save' | 'bills' | 'yield' | 'wallet' | 'notifications'>('save');
   const [isMounted, setIsMounted] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
   const [userRegistered, setUserRegistered] = useState(false);
+  
+  // Transaction history for on-chain receipts
+  const [txHistory, setTxHistory] = useState<Array<{type: string, amount: string, hash: string, time: string}>>([]);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
   
@@ -227,14 +231,28 @@ export default function Home() {
     }
   }, [userSavings]);
 
+  // Track last tx type for history
+  const [lastTxType, setLastTxType] = useState<string>('');
+
   // Refresh after tx
   useEffect(() => {
     if (isSuccess && hash) {
       setShowSuccess('Transaction confirmed!');
+      // Add to transaction history for on-chain receipts
+      if (lastTxType) {
+        const now = new Date();
+        const timeStr = now.toLocaleString();
+        setTxHistory(prev => [{
+          type: lastTxType,
+          amount: lastTxType === 'deposit' || lastTxType === 'withdraw' ? 'cUSD' : 'cUSD',
+          hash: hash,
+          time: timeStr
+        }, ...prev].slice(0, 50)); // Keep last 50
+      }
       refetchUserSavings();
       setTimeout(() => setShowSuccess(null), 3000);
     }
-  }, [isSuccess, hash]);
+  }, [isSuccess, hash, lastTxType]);
 
   // Handle write errors
   useEffect(() => {
@@ -281,6 +299,7 @@ export default function Home() {
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
       console.log('[DEPOSIT] amountWei:', amountWei.toString(), 'agentAddress:', agentAddress);
+      setLastTxType('deposit');
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -323,6 +342,7 @@ export default function Home() {
     
     try {
       const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
+      setLastTxType('withdraw');
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -735,7 +755,7 @@ export default function Home() {
                   <Wallet className="w-5 h-5 text-green-400" />
                   <span className="text-gray-400 text-sm">Balance</span>
                 </div>
-                <p className="text-3xl font-bold">${formatCUSD(userBalance)}</p>
+                <p className="text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(userBalance)}`}</p>
               </div>
               
               <div className="glass rounded-2xl p-6">
@@ -743,7 +763,7 @@ export default function Home() {
                   <TrendingUp className="w-5 h-5 text-green-400" />
                   <span className="text-gray-400 text-sm">Total Deposited</span>
                 </div>
-                <p className="text-3xl font-bold">${formatCUSD(totalDeposited)}</p>
+                <p className="text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(totalDeposited)}`}</p>
               </div>
               
               <div className="glass rounded-2xl p-6">
@@ -1065,15 +1085,70 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Bell className="w-6 h-6 text-blue-400" />
-                      <h4 className="font-bold">Notifications</h4>
+                      <h4 className="font-bold">Notifications & Privacy</h4>
                     </div>
                     <span className="text-sm text-gray-400">On-chain alerts</span>
                   </div>
 
-                  <div className="text-center py-12 text-gray-500">
-                    <Bell className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                    <p>No notifications yet</p>
-                    <p className="text-sm mt-1">You'll receive alerts for deposits, withdrawals, and bill payments</p>
+                  {/* Privacy Mode Toggle */}
+                  <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Shield className="w-6 h-6 text-purple-400" />
+                        <div>
+                          <p className="font-bold">Privacy Mode</p>
+                          <p className="text-sm text-gray-400">Hide amounts from public view</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setPrivacyMode(!privacyMode)}
+                        className={`w-12 h-6 rounded-full transition-colors ${privacyMode ? 'bg-purple-500' : 'bg-gray-600'}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${privacyMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Transaction History - On-chain receipts */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-green-400" />
+                      <h4 className="font-bold">Transaction History</h4>
+                    </div>
+                    <p className="text-sm text-gray-400">Every action creates an on-chain receipt</p>
+                    
+                    {txHistory.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p>No transactions yet</p>
+                        <p className="text-sm mt-1">Your agent actions will appear here</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {txHistory.map((tx, i) => (
+                          <div key={i} className="p-3 rounded-lg bg-white/5 border border-white/10">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {tx.type === 'deposit' ? <ArrowUpCircle className="w-4 h-4 text-green-400" /> : <ArrowDownCircle className="w-4 h-4 text-red-400" />}
+                                <span className="capitalize">{tx.type}</span>
+                              </div>
+                              <span className={privacyMode ? 'text-gray-500' : 'text-green-400'}>
+                                {privacyMode ? '••••' : tx.amount}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">{tx.time}</p>
+                            <a 
+                              href={`https://sepolia.celoscan.io/tx/${tx.hash}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:underline flex items-center gap-1 mt-1"
+                            >
+                              View on Explorer <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
