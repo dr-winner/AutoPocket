@@ -124,6 +124,11 @@ export default function Home() {
   const [sessionKeyInput, setSessionKeyInput] = useState('');
   const [secondOwnerInput, setSecondOwnerInput] = useState('');
   const [activeTab, setActiveTab] = useState<'save' | 'bills' | 'yield' | 'wallet' | 'notifications'>('save');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [userRegistered, setUserRegistered] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
@@ -427,6 +432,19 @@ export default function Home() {
 
   const userBalance = userSavings ? (userSavings as any).availableBalance : BigInt(0);
   const totalDeposited = userSavings ? (userSavings as any).totalDeposited : BigInt(0);
+
+  if (!isMounted) {
+    return (
+      <main className="min-h-screen animated-bg flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
+            <PiggyBank className="w-8 h-8 text-green-400" />
+          </div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen animated-bg">
