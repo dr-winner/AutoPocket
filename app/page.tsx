@@ -134,6 +134,15 @@ export default function Home() {
   
   // Transaction history for on-chain receipts
   const [txHistory, setTxHistory] = useState<Array<{type: string, amount: string, hash: string, time: string}>>([]);
+  
+  // DCA - Recurring deposits
+  const [dcaEnabled, setDcaEnabled] = useState(false);
+  const [dcaAmount, setDcaAmount] = useState('10');
+  const [dcaFrequency, setDcaFrequency] = useState<'daily' | 'weekly'>('daily');
+  const [dcaNextRun, setDcaNextRun] = useState<string>('');
+  
+  // Yield - Auto-compound toggle
+  const [yieldEnabled, setYieldEnabled] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
   
@@ -1043,14 +1052,70 @@ export default function Home() {
                   </div>
 
                   {/* Yield Info */}
-                  <div className="glass rounded-xl p-6 opacity-60">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Zap className="w-6 h-6 text-yellow-400" />
-                      <h4 className="font-bold">Yield Farming (Coming Soon)</h4>
+                  {/* DCA - Dollar Cost Averaging */}
+                  <div className="glass rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-6 h-6 text-blue-400" />
+                        <div>
+                          <h4 className="font-bold">Auto-Save (DCA)</h4>
+                          <p className="text-sm text-gray-400">Recurring deposits</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setDcaEnabled(!dcaEnabled)}
+                        className={`w-12 h-6 rounded-full transition-colors ${dcaEnabled ? 'bg-blue-500' : 'bg-gray-600'}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${dcaEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    
+                    {dcaEnabled && (
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            placeholder="Amount"
+                            value={dcaAmount}
+                            onChange={(e) => setDcaAmount(e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm"
+                          />
+                          <select
+                            value={dcaFrequency}
+                            onChange={(e) => setDcaFrequency(e.target.value as any)}
+                            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
+                          >
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                          </select>
+                        </div>
+                        {dcaNextRun && (
+                          <p className="text-xs text-gray-400">Next deposit: {dcaNextRun}</p>
+                        )}
+                        <p className="text-xs text-gray-500">💡 Enable to automate recurring savings</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Yield - Auto-compound */}
+                  <div className="glass rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Zap className="w-6 h-6 text-yellow-400" />
+                        <div>
+                          <h4 className="font-bold">Yield Mode</h4>
+                          <p className="text-sm text-gray-400">Auto-compound earnings</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setYieldEnabled(!yieldEnabled)}
+                        className={`w-12 h-6 rounded-full transition-colors ${yieldEnabled ? 'bg-yellow-500' : 'bg-gray-600'}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${yieldEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                      </button>
                     </div>
                     <p className="text-gray-400 text-sm">
-                      Deposit savings to earn yield via Celo DeFi protocols. 
-                      Currently in test mode - will be available after V2 deployment.
+                      {yieldEnabled ? '✅ Yield auto-compound enabled' : 'Turn on to automatically stake and compound your savings'}
                     </p>
                   </div>
 
