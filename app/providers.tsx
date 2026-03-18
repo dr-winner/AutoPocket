@@ -22,21 +22,28 @@ const celoSepoliaTestnet = {
   testnet: true,
 } as const;
 
-// Create config with getDefaultConfig to handle projectId properly
-const config = getDefaultConfig({
-  appName: 'AutoPocket',
-  projectId: '570d27fd124c1dbc243a7e48350a91c0',
-  chains: [mainnet, celo, celoSepoliaTestnet],
-  transports: {
-    [mainnet.id]: fallback([http()]),
-    [celoSepoliaTestnet.id]: fallback([
-      http('https://forno.celo-sepolia.celo-testnet.org'),
-    ]),
-    [celo.id]: fallback([
-      http('https://forno.celo.org'),
-    ]),
-  },
-});
+// Create config outside component to avoid recreation
+let config: ReturnType<typeof createConfig> | null = null;
+
+function getConfig() {
+  if (!config) {
+    config = getDefaultConfig({
+      appName: 'AutoPocket',
+      projectId: '570d27fd124c1dbc243a7e48350a91c0',
+      chains: [mainnet, celo, celoSepoliaTestnet],
+      transports: {
+        [mainnet.id]: fallback([http()]),
+        [celoSepoliaTestnet.id]: fallback([
+          http('https://forno.celo-sepolia.celo-testnet.org'),
+        ]),
+        [celo.id]: fallback([
+          http('https://forno.celo.org'),
+        ]),
+      },
+    });
+  }
+  return config;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ 
@@ -47,9 +54,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       } 
     } 
   }));
+  
+  const [wagmiConfig] = useState(() => getConfig());
 
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme({
