@@ -1,16 +1,12 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'AutoPocket - Autonomous Savings Agent',
   description: '🤖 AI-powered autonomous savings & bill payment agent for Celo. ERC-8004 compliant.',
 };
 
-// Force dynamic to prevent SSR issues with browser-only APIs (indexedDB, etc.)
 export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
@@ -20,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>
