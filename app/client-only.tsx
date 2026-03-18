@@ -1,7 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Providers } from './providers';
+import dynamic from 'next/dynamic';
+
+// Dynamically import providers to avoid SSR issues
+const Providers = dynamic(() => import('./providers').then(m => ({ default: m.Providers })), {
+  ssr: false,
+  loading: () => <LoadingScreen />
+});
 
 function LoadingScreen() {
   return (
