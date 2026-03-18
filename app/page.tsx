@@ -128,7 +128,11 @@ export default function Home() {
   const [privacyMode, setPrivacyMode] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
+    // Delay slightly to ensure hydration completes
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
   const [userRegistered, setUserRegistered] = useState(false);
   
@@ -498,6 +502,28 @@ export default function Home() {
   const userBalance = userSavings ? (userSavings as any).availableBalance : BigInt(0);
   const totalDeposited = userSavings ? (userSavings as any).totalDeposited : BigInt(0);
 
+  // Error state
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    // Global error handler
+    const handleError = (e: ErrorEvent) => {
+      console.error('[Global Error]', e.error);
+      setHasError(true);
+    };
+    const handleRejection = (e: PromiseRejectionEvent) => {
+      console.error('[Promise Rejection]', e.reason);
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   if (!isMounted) {
     return (
       <main className="min-h-screen animated-bg flex items-center justify-center">
@@ -506,6 +532,25 @@ export default function Home() {
             <PiggyBank className="w-8 h-8 text-green-400" />
           </div>
           <p className="text-gray-400">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <main className="min-h-screen animated-bg flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          </div>
+          <p className="text-red-400 mb-4">Something went wrong</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 rounded-lg bg-green-500 text-black font-bold"
+          >
+            Reload
+          </button>
         </div>
       </main>
     );
