@@ -824,8 +824,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Registration Prompt */}
-            {userRegistered === false && (
+            {/* Registration Prompt - show when connected & not registered (or still loading) */}
+            {isConnected && (userRegistered === false || userRegistered === undefined) && (
               <div className="glass rounded-2xl p-6 mb-8 border-2 border-yellow-500/30">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
