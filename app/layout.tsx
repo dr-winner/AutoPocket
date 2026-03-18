@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import ClientOnly from './client-only';
+import TestPage from './test-page';
 
 export const metadata: Metadata = {
   title: 'AutoPocket - Autonomous Savings Agent',
@@ -9,15 +9,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout() {
   return (
     <html lang="en">
       <body>
-        <ClientOnly>{children}</ClientOnly>
+        <TestPage />
       </body>
     </html>
   );
