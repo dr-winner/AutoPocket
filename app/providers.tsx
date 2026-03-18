@@ -1,14 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { WagmiProvider, createConfig, http, fallback } from 'wagmi';
+import { WagmiProvider, http, fallback, createConfig } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { mainnet, celo } from 'wagmi/chains';
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
-
-// WalletConnect project ID
-const projectId = '570d27fd124c1dbc243a7e48350a91c0';
 
 // Custom chain for Celo Sepolia
 const celoSepoliaTestnet = {
@@ -25,14 +22,15 @@ const celoSepoliaTestnet = {
   testnet: true,
 } as const;
 
-// Create config - using function to avoid issues
-const createWagmiConfig = () => createConfig({
+// Create config with getDefaultConfig to handle projectId properly
+const config = getDefaultConfig({
+  appName: 'AutoPocket',
+  projectId: '570d27fd124c1dbc243a7e48350a91c0',
   chains: [mainnet, celo, celoSepoliaTestnet],
   transports: {
     [mainnet.id]: fallback([http()]),
     [celoSepoliaTestnet.id]: fallback([
       http('https://forno.celo-sepolia.celo-testnet.org'),
-      http('https://rpc.ankr.com/celo_sepolia'),
     ]),
     [celo.id]: fallback([
       http('https://forno.celo.org'),
@@ -41,7 +39,6 @@ const createWagmiConfig = () => createConfig({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [config] = useState(() => createWagmiConfig());
   const [queryClient] = useState(() => new QueryClient({ 
     defaultOptions: { 
       queries: { 
