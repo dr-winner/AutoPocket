@@ -263,20 +263,27 @@ export default function Home() {
     }
   }, [isSuccess, hash, lastTxType]);
 
-  // Handle write errors
+  // Handle write errors - improved messages
   useEffect(() => {
     if (writeError) {
       const errStr = String(writeError);
-      if (errStr.includes('User rejected') || errStr.includes('rejected')) {
+      console.log('[WRITE ERROR DETAIL]', errStr);
+      
+      if (errStr.includes('User rejected') || errStr.includes('rejected') || errStr.includes('denied')) {
         setShowSuccess('Transaction cancelled');
       } else if (errStr.includes('insufficient funds')) {
-        setShowSuccess('Insufficient cUSD balance');
-      } else if (errStr.includes('ContractFunctionExecutionError')) {
-        setShowSuccess('Transaction failed. Contract may be inactive.');
+        setShowSuccess('❌ Insufficient cUSD balance');
+      } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
+        setShowSuccess('⚠️ Nonce error. Try again.');
+      } else if (errStr.includes('gas')) {
+        setShowSuccess('⛽ Transaction failed (gas)');
+      } else if (errStr.includes('ContractFunctionExecutionError') || errStr.includes('isReverted') || errStr.includes('execution reverted')) {
+        setShowSuccess('⚠️ Contract call failed. Are you registered?');
       } else {
-        setShowSuccess('Transaction failed');
+        setShowSuccess('❌ Failed: ' + errStr.slice(0, 40));
       }
-      setTimeout(() => setShowSuccess(null), 5000);
+      console.error('[WRITE ERROR]', writeError);
+      setTimeout(() => setShowSuccess(null), 6000);
     }
   }, [writeError]);
 
@@ -302,6 +309,14 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
+    
+    // Check if user is registered
+    if (!userRegistered) {
+      setShowSuccess('Please register first to use the agent');
+      setTimeout(() => setShowSuccess(null), 4000);
+      return;
+    }
+    
     const isOk = await ensureCorrectChain();
     if (!isOk) return;
     
@@ -346,6 +361,13 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
+    
+    if (!userRegistered) {
+      setShowSuccess('Please register first to use the agent');
+      setTimeout(() => setShowSuccess(null), 4000);
+      return;
+    }
+    
     const isOk = await ensureCorrectChain();
     if (!isOk) return;
     
@@ -902,22 +924,6 @@ export default function Home() {
                         onChange={(e) => setDepositAmount(e.target.value)}
                         className="w-full px-4 py-3 sm:py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-base"
                       />
-                      
-                      <button
-                        onClick={() => {
-                          const cUSDAddr = '0x765de816845861e75a25fca122bb6898b8b1272a';
-                          write({
-                            address: cUSDAddr,
-                            abi: [{name:'approve',type:'function',inputs:[{name:'spender',type:'address'},{name:'amount',type:'uint256'}],outputs:[{name:'',type:'bool'}],stateMutability:'nonpayable'}],
-                            functionName: 'approve',
-                            args: [agentAddress, ethers.MaxUint256],
-                          });
-                          setShowSuccess('Approve cUSD in wallet');
-                        }}
-                        className="w-full py-2.5 sm:py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold"
-                      >
-                        🔓 Approve cUSD (first time)
-                      </button>
                       
                       <div className="flex gap-2">
                         <button
