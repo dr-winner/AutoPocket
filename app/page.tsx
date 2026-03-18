@@ -115,6 +115,12 @@ const CUSD_DECIMALS = 6;
 
 export default function Home() {
   const { isConnected, address, chainId } = useAccount();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [billRecipient, setBillRecipient] = useState('');
