@@ -277,8 +277,10 @@ export default function Home() {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
         setShowSuccess('⛽ Transaction failed (gas)');
+      } else if (errStr.includes('Requested')) {
+        setShowSuccess('⚠️ Request cancelled or failed. Try again.');
       } else if (errStr.includes('ContractFunctionExecutionError') || errStr.includes('isReverted') || errStr.includes('execution reverted')) {
-        setShowSuccess('⚠️ Contract call failed. Are you registered?');
+        setShowSuccess('⚠️ Contract call failed. Are you on Celo Sepolia?');
       } else {
         setShowSuccess('❌ Failed: ' + errStr.slice(0, 40));
       }
@@ -388,14 +390,26 @@ export default function Home() {
   };
 
   const registerUser = async () => {
+    // Check chain first
+    if (!isCorrectChain) {
+      setShowSuccess('⚠️ Please switch to Celo Sepolia first');
+      setTimeout(() => setShowSuccess(null), 4000);
+      return;
+    }
+    
     try {
+      setLastTxType('register');
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
         functionName: 'registerUser',
         args: [],
       });
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error('[REGISTER ERROR]', err);
+      setShowSuccess('Registration failed - ' + String(err).slice(0, 30));
+      setTimeout(() => setShowSuccess(null), 5000);
+    }
   };
 
   const createBill = async () => {
