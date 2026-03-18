@@ -39,7 +39,6 @@ const config = getDefaultConfig({
       http('https://forno.celo.org'),
     ]),
   },
-  ssr: false,
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
