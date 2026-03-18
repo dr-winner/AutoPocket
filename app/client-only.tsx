@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Providers } from './providers';
 
 function LoadingScreen() {
@@ -18,16 +18,77 @@ function LoadingScreen() {
   );
 }
 
+function ErrorFallback({ error }: { error: Error }) {
+  return (
+    <main className="min-h-screen animated-bg flex items-center justify-center">
+      <div className="text-center p-8">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+          <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p className="text-red-400 mb-2">Error: {error?.message || 'Unknown'}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 rounded-lg bg-green-500 text-black font-bold"
+        >
+          Reload
+        </button>
+      </div>
+    </main>
+  );
+}
+
+// Error boundary class component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; onError?: (error: Error) => void },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+    this.props.onError?.(error);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return <ErrorFallback error={this.state.error!} />;
+    }
+    return this.props.children;
+  }
+}
+
 export default function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    try {
+      setMounted(true);
+    } catch (e) {
+      setError(e as Error);
+    }
   }, []);
+
+  if (error) {
+    return <ErrorFallback error={error} />;
+  }
 
   if (!mounted) {
     return <LoadingScreen />;
   }
 
-  return <Providers>{children}</Providers>;
+  return (
+    <ErrorBoundary onError={setError}>
+      <Providers>{children}</Providers>
+    </ErrorBoundary>
+  );
 }
