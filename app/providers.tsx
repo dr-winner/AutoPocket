@@ -7,17 +7,23 @@ import { mainnet, celo } from 'wagmi/chains';
 import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 
-// Custom chain for Celo Sepolia
+// Custom chain for Celo Sepolia (chain ID 11142220)
 const celoSepoliaTestnet = {
-  id: 447869,
+  id: 11142220,
   name: 'Celo Sepolia',
   nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://forno.celo-sepolia.celo-testnet.org'] },
-    public: { http: ['https://forno.celo-sepolia.celo-testnet.org'] },
+    default: { http: [
+      'https://forno.celo-sepolia.celo-testnet.org',
+      'https://celo-sepolia.drpc.org',
+    ]},
+    public: { http: [
+      'https://forno.celo-sepolia.celo-testnet.org',
+      'https://celo-sepolia.drpc.org',
+    ]},
   },
   blockExplorers: {
-    default: { name: 'Celo Explorer', url: 'https://sepolia.celoscan.io' },
+    default: { name: 'Celo Explorer', url: 'https://celo-sepolia.blockscout.com' },
   },
   testnet: true,
 } as const;
@@ -35,6 +41,7 @@ function getConfig() {
         [mainnet.id]: fallback([http()]),
         [celoSepoliaTestnet.id]: fallback([
           http('https://forno.celo-sepolia.celo-testnet.org'),
+          http('https://celo-sepolia.drpc.org'),
         ]),
         [celo.id]: fallback([
           http('https://forno.celo.org'),

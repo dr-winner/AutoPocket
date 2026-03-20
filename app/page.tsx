@@ -140,7 +140,8 @@ export default function Home() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
-  const [userRegistered, setUserRegistered] = useState(false);
+  // null = still loading, false = not registered, true = registered
+  const [userRegistered, setUserRegistered] = useState<boolean | null>(null);
   
   // Transaction history for on-chain receipts
   const [txHistory, setTxHistory] = useState<Array<{type: string, amount: string, hash: string, time: string}>>([]);
@@ -161,7 +162,7 @@ export default function Home() {
   const { switchChain } = useSwitchChain();
 
   // Celo Sepolia chain ID
-  const CELO_SEPOLIA_CHAIN_ID = 447869;
+  const CELO_SEPOLIA_CHAIN_ID = 11142220;
   
   // Simple chain check - just verify it's the right number
   const isCorrectChain = chainId != null && (Number(chainId) === CELO_SEPOLIA_CHAIN_ID);
@@ -322,8 +323,8 @@ export default function Home() {
       return;
     }
     
-    // Check if user is registered
-    if (!userRegistered) {
+    // Check if user is confirmed not registered (null means still loading - allow attempt)
+    if (userRegistered === false) {
       setShowSuccess('Please register first to use the agent');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
@@ -374,7 +375,7 @@ export default function Home() {
       return;
     }
     
-    if (!userRegistered) {
+    if (userRegistered === false) {
       setShowSuccess('Please register first to use the agent');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
@@ -889,8 +890,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Registration Prompt - show when connected & not registered (or still loading) */}
-            {isConnected && (userRegistered === false || userRegistered === undefined) && (
+            {/* Registration Prompt - only show when confirmed not registered */}
+            {isConnected && userRegistered === false && (
               <div className="glass rounded-2xl p-6 mb-8 border-2 border-yellow-500/30">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
