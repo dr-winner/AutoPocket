@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ClientOnly from './client-only';
 
 export const metadata: Metadata = {
   title: 'AutoPocket - Autonomous Savings Agent',
@@ -15,7 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <ClientOnly>{children}</ClientOnly>
+      </body>
     </html>
   );
 }
