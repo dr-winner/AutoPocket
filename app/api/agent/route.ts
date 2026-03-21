@@ -12,7 +12,7 @@ const RPC_URL = process.env.CELO_RPC_URL || 'https://forno.celo-sepolia.celo-tes
 
 // OpenRouter configuration
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const AI_MODEL = 'deepseek/deepseek-chat';
+const AI_MODEL = 'anthropic/claude-sonnet-4-5';
 
 // Token addresses (Celo Sepolia)
 const CUSD_ADDRESS = '0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80';
