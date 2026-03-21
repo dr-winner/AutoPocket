@@ -15,7 +15,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const AI_MODEL = 'deepseek/deepseek-chat';
 
 // Token addresses (Celo Sepolia)
-const CUSD_ADDRESS = '0x765de816845861e75a25fca122bb6898b8b1272a';
+const CUSD_ADDRESS = '0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80';
 
 // Direct JSON-RPC call helper
 async function rpcCall(method: string, params: any[] = []): Promise<any> {
@@ -68,7 +68,7 @@ function parseBool(hex: string): boolean {
 
 // x402 Payment configuration
 const PAYMENT_TOKEN = CUSD_ADDRESS;
-const CHAIN_ID = 447869;
+const CHAIN_ID = 11142220;
 
 const SERVICES = {
   'agent-stats': { price: 1, name: 'Get Agent Stats' },
@@ -255,8 +255,8 @@ export async function GET(request: NextRequest) {
     console.error('Agent API error:', error);
     return NextResponse.json({
       success: false,
-      error: 'Contract call failed',
+      error: 'Contract call failed. Check RPC or contract address.',
       detail: String(error),
-    }, { status: 200 });
+    }, { status: 500 });
   }
 }
