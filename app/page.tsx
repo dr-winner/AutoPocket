@@ -107,11 +107,21 @@ const AGENT_V2_ABI = [
 ];
 
 // V2 Contract - deployed to Celo Sepolia
-const AGENT_V2_ADDRESS = '0x4F717F2160BF3DE24cDdc917F1c43097915eA2D0' as `0x${string}`;
+const AGENT_V2_ADDRESS = '0x313aD30bcf20CA2130CD69E648CFD35A204e9763' as `0x${string}`;
 // Fallback to V1 for now
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
-const CUSD_DECIMALS = 6;
+// cUSD on Celo Sepolia
+const CUSD_ADDRESS = '0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80' as `0x${string}`;
+
+const CUSD_DECIMALS = 18;
+
+// Minimal ERC20 ABI for approve + allowance + balanceOf
+const ERC20_ABI = [
+  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], name: 'allowance', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'account', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const;
 
 export default function Home() {
   const { isConnected, address, chainId } = useAccount();
@@ -156,9 +166,14 @@ export default function Home() {
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
+  const [depositStep, setDepositStep] = useState<'idle' | 'approving' | 'depositing'>('idle');
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint>(BigInt(0));
+  const [pendingDepositFn, setPendingDepositFn] = useState<'depositSavings' | 'depositWithRoundUp'>('depositSavings');
   
-  const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
+  const { data: hash, writeContract: write, isPending, error: writeError, reset: resetWrite } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, error: approveError, reset: resetApprove } = useWriteContract();
+  const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { switchChain } = useSwitchChain();
 
   // Celo Sepolia chain ID
@@ -243,6 +258,23 @@ export default function Home() {
     query: { enabled: isConnected && !!address && useV2 }
   });
 
+  // cUSD wallet balance and allowance
+  const { data: cusdWalletBalance, refetch: refetchCusdBalance } = useReadContract({
+    address: CUSD_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address },
+  });
+
+  const { data: cusdAllowance, refetch: refetchAllowance } = useReadContract({
+    address: CUSD_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: address ? [address, AGENT_V2_ADDRESS] : undefined,
+    query: { enabled: isConnected && !!address },
+  });
+
   // Auto-check registration
   useEffect(() => {
     if (userSavings) {
@@ -251,14 +283,44 @@ export default function Home() {
     }
   }, [userSavings]);
 
+  // When approve confirms, auto-trigger the deposit
+  useEffect(() => {
+    if (isApproveSuccess && depositStep === 'approving' && pendingDepositAmount > BigInt(0)) {
+      setDepositStep('depositing');
+      setShowSuccess('✅ Approved! Submitting deposit...');
+      setLastTxType('deposit');
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: pendingDepositFn,
+        args: [pendingDepositAmount],
+      });
+    }
+  }, [isApproveSuccess]);
+
+  // Handle approve errors
+  useEffect(() => {
+    if (approveError) {
+      const errStr = String(approveError);
+      if (errStr.includes('User rejected') || errStr.includes('rejected') || errStr.includes('denied')) {
+        setShowSuccess('Transaction cancelled');
+      } else {
+        setShowSuccess('❌ Approval failed: ' + errStr.slice(0, 60));
+      }
+      setDepositStep('idle');
+      setTimeout(() => setShowSuccess(null), 5000);
+    }
+  }, [approveError]);
+
   // Track last tx type for history
   const [lastTxType, setLastTxType] = useState<string>('');
 
   // Refresh after tx
   useEffect(() => {
     if (isSuccess && hash) {
-      setShowSuccess('Transaction confirmed!');
-      // Add to transaction history for on-chain receipts
+      setShowSuccess('✅ Transaction confirmed!');
+      setDepositStep('idle');
+      setPendingDepositAmount(BigInt(0));
       if (lastTxType) {
         const now = new Date();
         const timeStr = now.toLocaleString();
@@ -267,10 +329,12 @@ export default function Home() {
           amount: lastTxType === 'deposit' || lastTxType === 'withdraw' ? 'cUSD' : 'cUSD',
           hash: hash,
           time: timeStr
-        }, ...prev].slice(0, 50)); // Keep last 50
+        }, ...prev].slice(0, 50));
       }
       refetchUserSavings();
-      setTimeout(() => setShowSuccess(null), 3000);
+      refetchCusdBalance();
+      refetchAllowance();
+      setTimeout(() => setShowSuccess(null), 4000);
     }
   }, [isSuccess, hash, lastTxType]);
 
@@ -279,11 +343,15 @@ export default function Home() {
     if (writeError) {
       const errStr = String(writeError);
       console.log('[WRITE ERROR DETAIL]', errStr);
+      setDepositStep('idle');
+      setPendingDepositAmount(BigInt(0));
       
       if (errStr.includes('User rejected') || errStr.includes('rejected') || errStr.includes('denied')) {
         setShowSuccess('Transaction cancelled');
       } else if (errStr.includes('insufficient funds')) {
-        setShowSuccess('❌ Insufficient cUSD balance');
+        setShowSuccess('❌ Insufficient CELO for gas fees');
+      } else if (errStr.includes('transfer value exceeded') || errStr.includes('ERC20')) {
+        setShowSuccess('❌ Insufficient cUSD balance or allowance');
       } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
@@ -291,9 +359,9 @@ export default function Home() {
       } else if (errStr.includes('Requested')) {
         setShowSuccess('⚠️ Request cancelled or failed. Try again.');
       } else if (errStr.includes('ContractFunctionExecutionError') || errStr.includes('isReverted') || errStr.includes('execution reverted')) {
-        setShowSuccess('⚠️ Contract call failed. Are you on Celo Sepolia?');
+        setShowSuccess('❌ Contract reverted. Check your cUSD balance and try again.');
       } else {
-        setShowSuccess('❌ Failed: ' + errStr.slice(0, 40));
+        setShowSuccess('❌ Failed: ' + errStr.slice(0, 60));
       }
       console.error('[WRITE ERROR]', writeError);
       setTimeout(() => setShowSuccess(null), 6000);
@@ -314,6 +382,34 @@ export default function Home() {
     try { return ethers.formatUnits(value, CUSD_DECIMALS); } catch { return '0.00'; }
   };
 
+  // Helper: approve then call fn
+  const approveAndCall = async (amountWei: bigint, fnName: 'depositSavings' | 'depositWithRoundUp') => {
+    const allowance = (cusdAllowance as bigint) ?? BigInt(0);
+    if (allowance >= amountWei) {
+      // Already approved — go straight to deposit
+      setDepositStep('depositing');
+      setLastTxType('deposit');
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: fnName,
+        args: [amountWei],
+      });
+    } else {
+      // Need approval first
+      setPendingDepositAmount(amountWei);
+      setPendingDepositFn(fnName);
+      setDepositStep('approving');
+      setShowSuccess('Step 1/2: Approving cUSD spend...');
+      writeApprove({
+        address: CUSD_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [AGENT_V2_ADDRESS, amountWei],
+      });
+    }
+  };
+
   // Actions
   const deposit = async () => {
     const amount = parseFloat(depositAmount);
@@ -322,10 +418,12 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
-    
-    // Check if user is confirmed not registered (null means still loading - allow attempt)
-    if (userRegistered === false) {
-      setShowSuccess('Please register first to use the agent');
+
+    // Check wallet cUSD balance
+    const walletBal = (cusdWalletBalance as bigint) ?? BigInt(0);
+    const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
+    if (walletBal < amountWei) {
+      setShowSuccess('❌ Insufficient cUSD in your wallet');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -334,18 +432,10 @@ export default function Home() {
     if (!isOk) return;
     
     try {
-      const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
-      console.log('[DEPOSIT] amountWei:', amountWei.toString(), 'agentAddress:', agentAddress);
-      setLastTxType('deposit');
-      write({
-        address: agentAddress,
-        abi: AGENT_V2_ABI,
-        functionName: 'depositSavings',
-        args: [amountWei],
-      });
-      console.log('[DEPOSIT] write called');
+      await approveAndCall(amountWei, 'depositSavings');
     } catch (err) { 
-      console.error('[DEPOSIT ERROR]', err); 
+      console.error('[DEPOSIT ERROR]', err);
+      setDepositStep('idle');
     }
   };
 
@@ -356,14 +446,13 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
+
+    const isOk = await ensureCorrectChain();
+    if (!isOk) return;
+
     try {
       const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
-      write({
-        address: agentAddress,
-        abi: AGENT_V2_ABI,
-        functionName: 'depositWithRoundUp',
-        args: [amountWei],
-      });
+      await approveAndCall(amountWei, 'depositWithRoundUp');
     } catch (err) { console.error(err); }
   };
 
@@ -374,9 +463,18 @@ export default function Home() {
       setTimeout(() => setShowSuccess(null), 3000);
       return;
     }
-    
-    if (userRegistered === false) {
-      setShowSuccess('Please register first to use the agent');
+
+    // Check contract savings balance
+    const savingsBal = (userBalance as bigint) ?? BigInt(0);
+    const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
+    if (amountWei > savingsBal) {
+      setShowSuccess('❌ Amount exceeds your savings balance');
+      setTimeout(() => setShowSuccess(null), 4000);
+      return;
+    }
+
+    if (!userRegistered) {
+      setShowSuccess('⚠️ No savings found to withdraw');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -385,7 +483,6 @@ export default function Home() {
     if (!isOk) return;
     
     try {
-      const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
       setLastTxType('withdraw');
       write({
         address: agentAddress,
@@ -832,16 +929,16 @@ export default function Home() {
 
             {showSuccess && (
               <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
-                showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network')
+                showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') || showSuccess.includes('failed') || showSuccess.includes('Failed') || showSuccess.startsWith('⚠️') || showSuccess.startsWith('❌') || showSuccess.includes('Nonce') || showSuccess.includes('gas')
                   ? 'bg-red-500/20 border border-red-500/30' 
                   : 'bg-green-500/20 border border-green-500/30'
               }`}>
-                {showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') ? (
+                {showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') || showSuccess.includes('failed') || showSuccess.includes('Failed') || showSuccess.startsWith('⚠️') || showSuccess.startsWith('❌') || showSuccess.includes('Nonce') || showSuccess.includes('gas') ? (
                   <AlertCircle className="w-5 h-5 text-red-400" />
                 ) : (
                   <CheckCircle className="w-5 h-5 text-green-400" />
                 )}
-                <span className={showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') ? 'text-red-400' : 'text-green-400'}>
+                <span className={showSuccess.includes('Error') || showSuccess.includes('cancelled') || showSuccess.includes('Insufficient') || showSuccess.includes('Wrong network') || showSuccess.includes('failed') || showSuccess.includes('Failed') || showSuccess.startsWith('⚠️') || showSuccess.startsWith('❌') || showSuccess.includes('Nonce') || showSuccess.includes('gas') ? 'text-red-400' : 'text-green-400'}>
                   {showSuccess}
                 </span>
               </div>
@@ -970,6 +1067,30 @@ export default function Home() {
               {/* Savings Tab */}
               {activeTab === 'save' && (
                 <div className="space-y-4 sm:space-y-6">
+                  {/* cUSD wallet balance info bar */}
+                  <div className="flex flex-wrap gap-3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400">Wallet cUSD:</span>
+                      <span className="font-bold text-white">{privacyMode ? '••••' : formatCUSD(cusdWalletBalance as any)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-gray-400">Approved:</span>
+                      <span className={`font-bold ${(cusdAllowance as bigint ?? BigInt(0)) > BigInt(0) ? 'text-green-400' : 'text-gray-500'}`}>
+                        {privacyMode ? '••••' : formatCUSD(cusdAllowance as any)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Two-step progress indicator */}
+                  {depositStep !== 'idle' && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin flex-shrink-0" />
+                      <span className="text-yellow-400 text-sm font-medium">
+                        {depositStep === 'approving' ? 'Step 1/2: Approving cUSD spend — confirm in wallet...' : 'Step 2/2: Depositing — confirm in wallet...'}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {/* Deposit */}
                     <div className="space-y-3 sm:space-y-4">
@@ -979,10 +1100,10 @@ export default function Home() {
                         </div>
                         <div>
                           <h4 className="font-bold text-sm sm:text-base">Deposit</h4>
-                          <p className="text-xs sm:text-sm text-gray-400">Add funds to savings</p>
+                          <p className="text-xs sm:text-sm text-gray-400">Auto-approves cUSD then deposits</p>
                         </div>
                       </div>
-                      
+
                       <input
                         type="number"
                         placeholder="Amount (cUSD)"
@@ -990,21 +1111,21 @@ export default function Home() {
                         onChange={(e) => setDepositAmount(e.target.value)}
                         className="w-full px-4 py-3 sm:py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-base"
                       />
-                      
+
                       <div className="flex gap-2">
                         <button
                           onClick={deposit}
-                          disabled={isPending || !depositAmount}
-                          className="flex-1 py-3 sm:py-4 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold text-sm sm:text-base"
+                          disabled={isPending || isApprovePending || isApproveConfirming || isConfirming || !depositAmount || depositStep !== 'idle'}
+                          className="flex-1 py-3 sm:py-4 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold text-sm sm:text-base transition-colors"
                         >
-                          {isPending ? '...' : 'Deposit'}
+                          {depositStep === 'approving' ? '1/2 Approving...' : depositStep === 'depositing' ? '2/2 Depositing...' : isConfirming ? 'Confirming...' : 'Deposit'}
                         </button>
                         <button
                           onClick={depositWithRoundUp}
-                          disabled={isPending || !depositAmount}
-                          className="flex-1 py-3 sm:py-4 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold text-sm sm:text-base"
+                          disabled={isPending || isApprovePending || isApproveConfirming || isConfirming || !depositAmount || depositStep !== 'idle'}
+                          className="flex-1 py-3 sm:py-4 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold text-sm sm:text-base transition-colors"
                         >
-                          {isPending ? '...' : 'Round-Up'}
+                          {depositStep !== 'idle' ? '...' : 'Round-Up'}
                         </button>
                       </div>
                     </div>
@@ -1017,10 +1138,10 @@ export default function Home() {
                         </div>
                         <div>
                           <h4 className="font-bold">Withdraw</h4>
-                          <p className="text-sm text-gray-400">Pull funds from savings</p>
+                          <p className="text-sm text-gray-400">Savings balance: {privacyMode ? '••••' : `$${formatCUSD(userBalance as any)}`}</p>
                         </div>
                       </div>
-                      
+
                       <input
                         type="number"
                         placeholder="Amount (cUSD)"
@@ -1028,13 +1149,13 @@ export default function Home() {
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500"
                       />
-                      
+
                       <button
                         onClick={withdraw}
-                        disabled={isPending || !withdrawAmount}
-                        className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold"
+                        disabled={isPending || isConfirming || !withdrawAmount || depositStep !== 'idle'}
+                        className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold transition-colors"
                       >
-                        {isPending ? 'Confirm...' : 'Withdraw'}
+                        {isPending && lastTxType === 'withdraw' ? 'Confirming...' : 'Withdraw'}
                       </button>
                     </div>
                   </div>
