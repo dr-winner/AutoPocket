@@ -351,7 +351,7 @@ export default function Home() {
       } else if (errStr.includes('insufficient funds')) {
         setShowSuccess('❌ Insufficient CELO for gas fees');
       } else if (errStr.includes('transfer value exceeded') || errStr.includes('ERC20')) {
-        setShowSuccess('❌ Insufficient cUSD balance or allowance');
+        setShowSuccess('❌ Insufficient cUSD. Get testnet cUSD at faucet.celo.org');
       } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
@@ -423,7 +423,7 @@ export default function Home() {
     const walletBal = (cusdWalletBalance as bigint) ?? BigInt(0);
     const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
     if (walletBal < amountWei) {
-      setShowSuccess('❌ Insufficient cUSD in your wallet');
+      setShowSuccess('❌ No cUSD in wallet. You have CELO but need cUSD. Get testnet cUSD at faucet.celo.org');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -679,6 +679,9 @@ export default function Home() {
             
             {/* Status badges - mobile friendly */}
             <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/30 flex-shrink-0">
+                <span className="text-[10px] font-bold text-yellow-400">TESTNET</span>
+              </div>
               {isConnected && isCorrectChain && (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/20 border border-green-500/30 flex-shrink-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
@@ -1073,12 +1076,20 @@ export default function Home() {
                       <span className="text-gray-400">Wallet cUSD:</span>
                       <span className="font-bold text-white">{privacyMode ? '••••' : formatCUSD(cusdWalletBalance as any)}</span>
                     </div>
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-2">
                       <span className="text-gray-400">Approved:</span>
                       <span className={`font-bold ${(cusdAllowance as bigint ?? BigInt(0)) > BigInt(0) ? 'text-green-400' : 'text-gray-500'}`}>
                         {privacyMode ? '••••' : formatCUSD(cusdAllowance as any)}
                       </span>
                     </div>
+                    <a
+                      href="https://faucet.celo.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-yellow-400 hover:underline ml-auto"
+                    >
+                      Get testnet cUSD ↗
+                    </a>
                   </div>
 
                   {/* Two-step progress indicator */}
@@ -1551,7 +1562,8 @@ export default function Home() {
       <footer className="border-t border-white/10 py-8 px-4 mt-12">
         <div className="max-w-6xl mx-auto text-center text-gray-500">
           <p>🤖 AutoPocket v3.0 - Autonomous Financial Agent</p>
-          <p className="text-sm mt-2">Celo • ERC-8004 • x402 • 4337</p>
+          <p className="text-sm mt-2">Celo Sepolia Testnet • ERC-8004 • x402 • 4337</p>
+          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — use testnet tokens from faucet.celo.org</p>
         </div>
       </footer>
     </main>
