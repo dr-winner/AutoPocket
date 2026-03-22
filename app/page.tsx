@@ -193,11 +193,11 @@ export default function Home() {
   const abi = AGENT_V2_ABI;
 
   // Read contract data — only fire when on correct chain to avoid ChainNotConfiguredError
-  const { data: agentStats } = useReadContract({
+  const { data: agentStats, refetch: refetchAgentStats } = useReadContract({
     address: agentAddress,
     abi: AGENT_V2_ABI,
     functionName: 'getAgentStats',
-    query: { enabled: isCorrectChain }
+    query: { enabled: isCorrectChain, refetchInterval: 10000 }
   });
 
   const { data: userSavings, refetch: refetchUserSavings } = useReadContract({
@@ -205,15 +205,15 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getUserSavings',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && isCorrectChain }
+    query: { enabled: isConnected && !!address && isCorrectChain, refetchInterval: 10000 }
   });
 
-  const { data: rewardPoints } = useReadContract({
+  const { data: rewardPoints, refetch: refetchRewardPoints } = useReadContract({
     address: agentAddress,
     abi: AGENT_V2_ABI,
     functionName: 'getRewardPoints',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
+    query: { enabled: isConnected && !!address && useV2 && isCorrectChain, refetchInterval: 10000 }
   });
 
   const { data: roundUpBal } = useReadContract({
@@ -274,6 +274,8 @@ export default function Home() {
       }
       refetchUserSavings();
       refetchCeloBalance();
+      refetchAgentStats();
+      refetchRewardPoints();
       setTimeout(() => setShowSuccess(null), 4000);
     }
   }, [isSuccess, hash, lastTxType]);
