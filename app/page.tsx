@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance, useSwitchChain } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ethers } from 'ethers';
+import confetti from 'canvas-confetti';
 import { 
   PiggyBank, 
   Calendar, 
@@ -155,6 +156,29 @@ export default function Home() {
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
+
+  // Local bill list (persisted to localStorage)
+  type LocalBill = { id: string; description: string; recipient: string; amount: string; createdAt: string };
+
+  // Tx success modal
+  const [txModal, setTxModal] = useState<{ hash: string; type: string } | null>(null);
+  const [pendingBill, setPendingBill] = useState<Omit<LocalBill, 'createdAt'> | null>(null);
+  const [localBills, setLocalBills] = useState<LocalBill[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('autopocket_bills');
+      if (stored) setLocalBills(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const saveBill = useCallback((bill: LocalBill) => {
+    setLocalBills(prev => {
+      const next = [bill, ...prev];
+      try { localStorage.setItem('autopocket_bills', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
   const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const { switchChain } = useSwitchChain();
@@ -262,7 +286,12 @@ export default function Home() {
   // Refresh after tx
   useEffect(() => {
     if (isSuccess && hash) {
-      setShowSuccess('✅ Transaction confirmed!');
+      // Confetti
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ['#35D07F', '#FBCC5C', '#9B59B6'] });
+
+      // Show tx modal
+      setTxModal({ hash, type: lastTxType || 'transaction' });
+
       if (lastTxType) {
         const now = new Date();
         setTxHistory(prev => [{
@@ -272,11 +301,18 @@ export default function Home() {
           time: now.toLocaleString()
         }, ...prev].slice(0, 50));
       }
+
+      // If bill was just created, save it locally
+      if (lastTxType === 'bill' && pendingBill) {
+        saveBill({ ...pendingBill, createdAt: new Date().toLocaleString() });
+        setPendingBill(null);
+        setBillRecipient(''); setBillAmount(''); setBillDescription('');
+      }
+
       refetchUserSavings();
       refetchCeloBalance();
       refetchAgentStats();
       refetchRewardPoints();
-      setTimeout(() => setShowSuccess(null), 4000);
     }
   }, [isSuccess, hash, lastTxType]);
 
@@ -459,6 +495,8 @@ export default function Home() {
     try {
       const billId = ethers.id('bill_' + Date.now());
       const amountWei = ethers.parseUnits(billAmount, CELO_DECIMALS);
+      setLastTxType('bill');
+      setPendingBill({ id: billId, description: billDescription, recipient: billRecipient, amount: billAmount });
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -581,6 +619,32 @@ export default function Home() {
 
   return (
     <main className="min-h-screen animated-bg">
+      {/* Tx Success Modal */}
+      {txModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setTxModal(null)}>
+          <div className="bg-[#1a1a2e] border border-green-500/30 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
+              <CheckCircle className="w-10 h-10 text-green-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-1">Transaction Confirmed!</h3>
+            <p className="text-gray-400 text-sm mb-4 capitalize">{txModal.type} successful</p>
+            <div className="bg-white/5 rounded-xl p-3 mb-5 font-mono text-xs text-gray-300 break-all">
+              {txModal.hash}
+            </div>
+            <a
+              href={`https://celo-sepolia.blockscout.com/tx/${txModal.hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-black font-bold mb-3"
+            >
+              View on Explorer <ExternalLink className="w-4 h-4" />
+            </a>
+            <button onClick={() => setTxModal(null)} className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-sm">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header - Mobile optimized */}
       <header className="border-b border-white/10 bg-black/40 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-3 py-3">
@@ -1124,8 +1188,38 @@ export default function Home() {
                       disabled={isPending || !billRecipient || !billAmount || !billDescription}
                       className="w-full py-3 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold"
                     >
-                      {isPending ? 'Confirm...' : 'Create Auto-Pay Bill'}
+                      {isPending ? 'Confirm in wallet...' : 'Create Auto-Pay Bill'}
                     </button>
+                  </div>
+
+                  {/* Bill List */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-gray-300">Your Bills</h4>
+                      <span className="text-xs text-gray-500">{localBills.length} active</span>
+                    </div>
+                    {localBills.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No bills yet. Create one above.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {localBills.map((bill) => (
+                          <div key={bill.id} className="p-4 rounded-xl bg-white/5 border border-white/10">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-semibold text-white">{bill.description}</span>
+                              <span className="text-purple-400 font-bold">{bill.amount} CELO</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-1">To: {bill.recipient.slice(0, 10)}...{bill.recipient.slice(-6)}</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">{bill.createdAt}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Monthly</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
