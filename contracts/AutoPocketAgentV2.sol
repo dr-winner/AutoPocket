@@ -152,8 +152,8 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     // ═══════════════════════════════════════════════════════════════════
 
     constructor() {
-        // Celo Mainnet addresses
-        cUSD = IERC20(0x765DE816845861E75A25FcA122bb6898b8b1272a);
+        // Celo Testnet addresses
+        cUSD = IERC20(0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80); // cUSD on Celo Testnet
         CELO = IERC20(0x471eCE3750Da237f93B8E339C536988Bc5deB0B4);
         cEUR = IERC20(0xd8763cbA276Ab0eD6a75dD1B5F2AEEF3a57cB600);
         
