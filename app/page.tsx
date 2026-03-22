@@ -275,7 +275,7 @@ export default function Home() {
   useEffect(() => {
     if (userSavings) {
       const data = userSavings as any;
-      setUserRegistered(data.isRegistered);
+      setUserRegistered(data[4]);
     }
   }, [userSavings]);
 
@@ -560,8 +560,8 @@ export default function Home() {
   const isAgentActive = agentStats ? (agentStats as any)[3] : true;
   const reputation = agentStats ? (agentStats as any)[4] : BigInt(0);
 
-  const userBalance = userSavings ? (userSavings as any).availableBalance : BigInt(0);
-  const totalDeposited = userSavings ? (userSavings as any).totalDeposited : BigInt(0);
+  const userBalance = userSavings ? (userSavings as any)[2] : BigInt(0);
+  const totalDeposited = userSavings ? (userSavings as any)[0] : BigInt(0);
 
   // Error state
   const [hasError, setHasError] = useState(false);
