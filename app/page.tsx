@@ -112,7 +112,7 @@ const AGENT_V2_ADDRESS = '0x313aD30bcf20CA2130CD69E648CFD35A204e9763' as `0x${st
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
 // cUSD on Celo Sepolia
-const CUSD_ADDRESS = '0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80' as `0x${string}`;
+const CUSD_ADDRESS = '0x0b9d3Fb4415d43A44E81439458F652Bf82222752' as `0x${string}`;
 
 const CUSD_DECIMALS = 18;
 
@@ -175,6 +175,19 @@ export default function Home() {
   const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, error: approveError, reset: resetApprove } = useWriteContract();
   const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { switchChain } = useSwitchChain();
+  const { writeContract: writeMint, isPending: isMinting } = useWriteContract();
+
+  const handleMintTestCUSD = () => {
+    if (!address) return;
+    writeMint({
+      address: CUSD_ADDRESS,
+      abi: [{ name: 'mint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] }],
+      functionName: 'mint',
+      args: [address, BigInt('100000000000000000000')], // 100 cUSD
+    }, {
+      onSuccess: () => { setTimeout(() => { refetchCusdBalance(); }, 3000); },
+    });
+  };
 
   // Celo Sepolia chain ID
   const CELO_SEPOLIA_CHAIN_ID = 11142220;
@@ -351,7 +364,7 @@ export default function Home() {
       } else if (errStr.includes('insufficient funds')) {
         setShowSuccess('❌ Insufficient CELO for gas fees');
       } else if (errStr.includes('transfer value exceeded') || errStr.includes('ERC20')) {
-        setShowSuccess('❌ Insufficient cUSD. Swap CELO for cUSD on Mento: app.mento.org');
+        setShowSuccess('❌ Insufficient cUSD. Use the "+ Get 100 Test cUSD" button to mint some.');
       } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
@@ -423,7 +436,7 @@ export default function Home() {
     const walletBal = (cusdWalletBalance as bigint) ?? BigInt(0);
     const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
     if (walletBal < amountWei) {
-      setShowSuccess('❌ No cUSD in wallet. You have CELO — swap for cUSD on Mento: app.mento.org');
+      setShowSuccess('❌ No cUSD in wallet. Use the "+ Get 100 Test cUSD" button to mint some.');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -1082,14 +1095,13 @@ export default function Home() {
                         {privacyMode ? '••••' : formatCUSD(cusdAllowance as any)}
                       </span>
                     </div>
-                    <a
-                      href="https://app.mento.org"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-yellow-400 hover:underline ml-auto"
+                    <button
+                      onClick={handleMintTestCUSD}
+                      disabled={isMinting || !isCorrectChain}
+                      className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300 ml-auto disabled:opacity-50"
                     >
-                      Swap CELO → cUSD on Mento ↗
-                    </a>
+                      {isMinting ? 'Minting...' : '+ Get 100 Test cUSD'}
+                    </button>
                   </div>
 
                   {/* Two-step progress indicator */}
@@ -1563,7 +1575,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto text-center text-gray-500">
           <p>🤖 AutoPocket v3.0 - Autonomous Financial Agent</p>
           <p className="text-sm mt-2">Celo Testnet • ERC-8004 • x402 • 4337</p>
-          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — swap CELO for cUSD at app.mento.org</p>
+          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — use "+ Get 100 Test cUSD" to mint test tokens</p>
         </div>
       </footer>
     </main>
