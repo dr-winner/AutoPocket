@@ -209,12 +209,12 @@ export default function Home() {
   // Currently using V2 only - V1 ABI not defined, but we're on V2
   const abi = AGENT_V2_ABI;
 
-  // Read contract data
+  // Read contract data — only fire when on correct chain to avoid ChainNotConfiguredError
   const { data: agentStats } = useReadContract({
     address: agentAddress,
     abi: AGENT_V2_ABI,
     functionName: 'getAgentStats',
-    query: { enabled: true }
+    query: { enabled: isCorrectChain }
   });
 
   const { data: userSavings, refetch: refetchUserSavings } = useReadContract({
@@ -222,7 +222,7 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getUserSavings',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address }
+    query: { enabled: isConnected && !!address && isCorrectChain }
   });
 
   const { data: rewardPoints } = useReadContract({
@@ -230,7 +230,7 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getRewardPoints',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && useV2 }
+    query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
   });
 
   const { data: roundUpBal } = useReadContract({
@@ -238,7 +238,7 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getUserRoundUpBalance',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && useV2 }
+    query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
   });
 
   // Account Abstraction reads
@@ -247,7 +247,7 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getNonce',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && useV2 }
+    query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
   });
 
   const { data: secondOwner } = useReadContract({
@@ -255,7 +255,7 @@ export default function Home() {
     abi: AGENT_V2_ABI,
     functionName: 'getSecondOwner',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && useV2 }
+    query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
   });
 
   // cUSD wallet balance and allowance
@@ -264,7 +264,7 @@ export default function Home() {
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address },
+    query: { enabled: isConnected && !!address && isCorrectChain },
   });
 
   const { data: cusdAllowance, refetch: refetchAllowance } = useReadContract({
@@ -272,7 +272,7 @@ export default function Home() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address ? [address, AGENT_V2_ADDRESS] : undefined,
-    query: { enabled: isConnected && !!address },
+    query: { enabled: isConnected && !!address && isCorrectChain },
   });
 
   // Auto-check registration
