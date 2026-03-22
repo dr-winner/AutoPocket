@@ -25,20 +25,47 @@ function LoadingScreen() {
 }
 
 function ErrorFallback({ error }: { error: Error }) {
+  const isChainError = error?.message?.toLowerCase().includes('chain') || 
+                       error?.message?.toLowerCase().includes('not configured');
+
+  const handleReset = () => {
+    // Clear wagmi/wallet cached state so reconnect doesn't crash again
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('wagmi') || key.startsWith('wc@') || key.startsWith('walletconnect') || key.includes('rainbowkit'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      // ignore
+    }
+    window.location.reload();
+  };
+
   return (
     <main className="min-h-screen animated-bg flex items-center justify-center">
-      <div className="text-center p-8">
+      <div className="text-center p-8 max-w-md">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
           <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <p className="text-red-400 mb-2">Error: {error?.message || 'Unknown'}</p>
+        {isChainError ? (
+          <>
+            <p className="text-yellow-400 mb-2 font-bold">Wrong network detected</p>
+            <p className="text-gray-400 text-sm mb-4">Your wallet was connected to an unsupported chain. Click below to reset and reconnect on Celo Sepolia.</p>
+          </>
+        ) : (
+          <p className="text-red-400 mb-4">Error: {error?.message || 'Unknown'}</p>
+        )}
         <button 
-          onClick={() => window.location.reload()}
+          onClick={handleReset}
           className="px-6 py-2 rounded-lg bg-green-500 text-black font-bold"
         >
-          Reload
+          {isChainError ? 'Reset & Reconnect' : 'Reload'}
         </button>
       </div>
     </main>
