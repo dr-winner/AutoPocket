@@ -56,7 +56,7 @@ function ErrorFallback({ error }: { error: Error }) {
         {isChainError ? (
           <>
             <p className="text-yellow-400 mb-2 font-bold">Wrong network detected</p>
-            <p className="text-gray-400 text-sm mb-4">Your wallet was connected to an unsupported chain. Click below to reset and reconnect on Celo Sepolia.</p>
+            <p className="text-gray-400 text-sm mb-4">Your wallet was connected to an unsupported chain. Click below to reset and reconnect on Celo Testnet.</p>
           </>
         ) : (
           <p className="text-red-400 mb-4">Error: {error?.message || 'Unknown'}</p>

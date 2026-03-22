@@ -190,7 +190,7 @@ export default function Home() {
         return false;
       } catch (e) {
         console.error('Failed to switch chain:', e);
-        setShowSuccess('Please switch to Celo Sepolia manually');
+        setShowSuccess('Please switch to Celo Testnet manually');
         return false;
       }
     }
@@ -351,7 +351,7 @@ export default function Home() {
       } else if (errStr.includes('insufficient funds')) {
         setShowSuccess('❌ Insufficient CELO for gas fees');
       } else if (errStr.includes('transfer value exceeded') || errStr.includes('ERC20')) {
-        setShowSuccess('❌ Insufficient cUSD. Get testnet cUSD at faucet.celo.org');
+        setShowSuccess('❌ Insufficient cUSD. Swap CELO for cUSD on Mento: app.mento.org');
       } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
@@ -423,7 +423,7 @@ export default function Home() {
     const walletBal = (cusdWalletBalance as bigint) ?? BigInt(0);
     const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
     if (walletBal < amountWei) {
-      setShowSuccess('❌ No cUSD in wallet. You have CELO but need cUSD. Get testnet cUSD at faucet.celo.org');
+      setShowSuccess('❌ No cUSD in wallet. You have CELO — swap for cUSD on Mento: app.mento.org');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -500,7 +500,7 @@ export default function Home() {
   const registerUser = async () => {
     // Check chain first
     if (!isCorrectChain) {
-      setShowSuccess('⚠️ Please switch to Celo Sepolia first');
+      setShowSuccess('⚠️ Please switch to Celo Testnet first');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
@@ -919,7 +919,7 @@ export default function Home() {
               <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <AlertCircle className="w-5 h-5 text-red-400" />
-                  <span className="text-red-400">Wrong network - switch to Celo Sepolia</span>
+                  <span className="text-red-400">Wrong network - switch to Celo Testnet</span>
                 </div>
                 <button
                   onClick={switchToCeloSepolia}
@@ -1083,12 +1083,12 @@ export default function Home() {
                       </span>
                     </div>
                     <a
-                      href="https://faucet.celo.org"
+                      href="https://app.mento.org"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs text-yellow-400 hover:underline ml-auto"
                     >
-                      Get testnet cUSD ↗
+                      Swap CELO → cUSD on Mento ↗
                     </a>
                   </div>
 
@@ -1562,8 +1562,8 @@ export default function Home() {
       <footer className="border-t border-white/10 py-8 px-4 mt-12">
         <div className="max-w-6xl mx-auto text-center text-gray-500">
           <p>🤖 AutoPocket v3.0 - Autonomous Financial Agent</p>
-          <p className="text-sm mt-2">Celo Sepolia Testnet • ERC-8004 • x402 • 4337</p>
-          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — use testnet tokens from faucet.celo.org</p>
+          <p className="text-sm mt-2">Celo Testnet • ERC-8004 • x402 • 4337</p>
+          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — swap CELO for cUSD at app.mento.org</p>
         </div>
       </footer>
     </main>

@@ -10,7 +10,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 // Custom chain for Celo Sepolia (chain ID 11142220)
 const celoSepoliaTestnet = {
   id: 11142220,
-  name: 'Celo Sepolia',
+  name: 'Celo Testnet',
   nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
   rpcUrls: {
     default: { http: [
