@@ -3,34 +3,19 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title AutoPocketAgentV2
- * @dev Enhanced Autonomous Savings & Bill Payment Agent for Celo
- * 
- * @notice This contract implements:
- * - ERC-8004 compliant agent identity
- * - x402 protocol for autonomous API payments
- * - Round-up savings (spare change)
- * - Scheduled bill payments with auto-execute
- * - Yield farming integration (Celo DeFi)
- * - Account abstraction via 4337
- * - On-chain notifications
- * - Celo Identity (ODIS) integration ready
- * 
- * @author AutoPocket Team
- * @custom:version 3.0.0
+ * @dev Autonomous Savings & Bill Payment Agent for Celo — uses native CELO
  */
 contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
-    using SafeERC20 for IERC20;
 
     // ═══════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════
-    
+
     error NotAuthorized();
     error AgentNotActive();
     error InvalidAmount();
@@ -42,25 +27,16 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     error InsufficientBalance();
     error InvalidRecipient();
     error ZeroAddress();
-    error YieldTransferFailed();
+    error TransferFailed();
 
     // ═══════════════════════════════════════════════════════════════════
     // STATE VARIABLES
     // ═══════════════════════════════════════════════════════════════════
-    
-    /// @notice Agent activation status
+
     bool public isActive;
-    
-    /// @notice Last action timestamp
     uint256 public lastActionTimestamp;
-    
-    /// @notice Total actions performed
     uint256 public actionCount;
-    
-    /// @notice Total savings in contract
     uint256 public totalSavings;
-    
-    /// @notice Total bills paid
     uint256 public totalBillsPaid;
 
     // ERC-8004 Identity
@@ -69,40 +45,37 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     string public agentVersion = "3.0.0";
     uint256 public reputationScore = 95;
 
-    // Token Addresses (Celo Mainnet)
-    IERC20 public immutable cUSD;
-    IERC20 public immutable CELO;
-    IERC20 public immutable cEUR;
-    
-    // DeFi Integration (Ubeswap / Celo Dex)
-    address public yieldVault;
-    bool public yieldEnabled;
-    uint256 public yieldRate = 500; // 5% APY (in basis points)
-
     // User data
     mapping(address => UserData) public userData;
     mapping(address => bool) public authorizedUsers;
-    
+
     // Bills
     mapping(bytes32 => Bill) public bills;
     mapping(address => bytes32[]) public userBillIds;
-    mapping(address => uint256) public lastBillExecution;
 
     // Notifications
     mapping(address => Notification[]) public notifications;
     uint256 public notificationCount;
 
-    // Account Abstraction (4337 minimal)
+    // Account Abstraction
     mapping(address => uint256) public nonce;
     mapping(bytes32 => bool) public executedTransactions;
-    
+
     // Round-up settings
-    mapping(address => uint256) public roundUpSettings; // user's round-up threshold
+    mapping(address => uint256) public roundUpSettings;
     mapping(address => uint256) public totalRoundUps;
 
     // Rewards
     mapping(address => uint256) public rewardPoints;
     uint256 public constant POINTS_PER_DEPOSIT = 10;
+
+    // Session keys
+    mapping(address => mapping(address => bool)) public sessionKeys;
+
+    // Multi-sig
+    mapping(address => address) public secondOwners;
+    mapping(bytes32 => mapping(address => bool)) public confirmedTransactions;
+    mapping(bytes32 => uint256) public confirmationCount;
 
     // ═══════════════════════════════════════════════════════════════════
     // DATA STRUCTURES
@@ -111,10 +84,9 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     struct UserData {
         uint256 totalDeposited;
         uint256 totalWithdrawn;
-        uint256 roundUpBalance;
+        uint256 savingsBalance;
         uint256 lastDepositTime;
         bool isRegistered;
-        uint256 yTokens; // yield-bearing tokens
     }
 
     struct Bill {
@@ -128,6 +100,8 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         string description;
     }
 
+    enum NotificationType { Deposit, Withdrawal, BillPaid, BillCreated, Alert, Reward, RoundUp }
+
     struct Notification {
         address user;
         string message;
@@ -136,31 +110,33 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         NotificationType notificationType;
     }
 
-    enum NotificationType {
-        Deposit,
-        Withdrawal,
-        BillCreated,
-        BillPaid,
-        BillDue,
-        RoundUp,
-        Reward,
-        Alert
-    }
+    // ═══════════════════════════════════════════════════════════════════
+    // EVENTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    event AgentActivated(bool active);
+    event UserRegistered(address indexed user);
+    event SavingsDeposited(address indexed user, uint256 amount, uint256 roundUp);
+    event SavingsWithdrawn(address indexed user, uint256 amount);
+    event BillCreated(bytes32 indexed billId, address indexed user, uint256 amount, uint256 frequency);
+    event BillExecuted(bytes32 indexed billId, address indexed user, uint256 amount);
+    event BillCancelled(bytes32 indexed billId);
+    event RewardsClaimed(address indexed user, uint256 amount);
+    event FundsReceived(address indexed from, uint256 amount);
+    event SessionKeySet(address indexed user, address indexed sessionKey, bool enabled);
+    event SecondOwnerAdded(address indexed user, address indexed newOwner);
+    event TransactionReadyForExecution(bytes32 indexed txHash);
 
     // ═══════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════
 
     constructor() {
-        // Celo Testnet addresses
-        cUSD = IERC20(0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80); // cUSD on Celo Testnet
-        CELO = IERC20(0x471eCE3750Da237f93B8E339C536988Bc5deB0B4);
-        cEUR = IERC20(0xd8763cbA276Ab0eD6a75dD1B5F2AEEF3a57cB600);
-        
-        // Initialize agent ID (ERC-8004)
         agentId = bytes32(keccak256(abi.encodePacked("AutoPocket-Agent-v3")));
-        
-        _registerERC8004();
+    }
+
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -178,109 +154,99 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CORE FUNCTIONS
+    // AGENT MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Set agent active status
     function setActive(bool _active) external onlyOwner {
         isActive = _active;
         emit AgentActivated(_active);
     }
 
-    /// @notice Register user automatically
+    // ═══════════════════════════════════════════════════════════════════
+    // USER REGISTRATION
+    // ═══════════════════════════════════════════════════════════════════
+
     function _registerUser(address _user) internal {
         if (userData[_user].isRegistered) return;
-        
         userData[_user].isRegistered = true;
         userData[_user].lastDepositTime = block.timestamp;
-        roundUpSettings[_user] = 100; // Default $0.01 round-up
-        
+        roundUpSettings[_user] = 1e15; // Default 0.001 CELO round-up
         authorizedUsers[_user] = true;
-        
         emit UserRegistered(_user);
         _notify(_user, "Welcome to AutoPocket! Your autonomous savings agent is ready.", NotificationType.Reward);
     }
 
-    /// @notice Register user (alias for compatibility)
     function registerUser() external whenNotPaused {
         _registerUser(msg.sender);
     }
 
-    /// @notice Deposit savings with auto-registration
-    function depositSavings(uint256 _amount) external nonReentrant whenNotPaused {
-        if (_amount == 0) revert InvalidAmount();
-        
+    // ═══════════════════════════════════════════════════════════════════
+    // SAVINGS (native CELO)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Deposit native CELO as savings
+    function depositSavings() external payable nonReentrant whenNotPaused onlyActive {
+        if (msg.value == 0) revert InvalidAmount();
+
         _registerUser(msg.sender);
-        
-        // Transfer cUSD from user
-        cUSD.safeTransferFrom(msg.sender, address(this), _amount);
-        
-        // Update user data
-        userData[msg.sender].totalDeposited += _amount;
-        userData[msg.sender].roundUpBalance += _amount;
+
+        userData[msg.sender].totalDeposited += msg.value;
+        userData[msg.sender].savingsBalance += msg.value;
         userData[msg.sender].lastDepositTime = block.timestamp;
-        
-        // Update total
-        totalSavings += _amount;
+
+        totalSavings += msg.value;
         actionCount++;
         lastActionTimestamp = block.timestamp;
-        
-        // Award points
+
         rewardPoints[msg.sender] += POINTS_PER_DEPOSIT;
-        
-        emit SavingsDeposited(msg.sender, _amount, 0);
-        _notify(msg.sender, string(abi.encodePacked("Deposited ", _amount / 1e6, " cUSD")), NotificationType.Deposit);
+
+        emit SavingsDeposited(msg.sender, msg.value, 0);
+        _notify(msg.sender, "CELO deposited to savings.", NotificationType.Deposit);
     }
 
-    /// @notice Deposit with round-up feature
-    function depositWithRoundUp(uint256 _transactionAmount) external nonReentrant whenNotPaused {
+    /// @notice Deposit with round-up: send the round-up amount as msg.value
+    function depositWithRoundUp(uint256 _transactionAmount) external payable nonReentrant whenNotPaused onlyActive {
+        if (msg.value == 0) revert InvalidAmount();
         if (_transactionAmount == 0) revert InvalidAmount();
-        
+
         _registerUser(msg.sender);
-        
-        uint256 roundUpTo = roundUpSettings[msg.sender];
-        if (roundUpTo == 0) roundUpTo = 100; // Default
-        
-        uint256 remainder = roundUpTo - (_transactionAmount % roundUpTo);
-        uint256 totalDeposit = _transactionAmount + remainder;
-        
-        cUSD.safeTransferFrom(msg.sender, address(this), totalDeposit);
-        
-        userData[msg.sender].totalDeposited += totalDeposit;
-        userData[msg.sender].roundUpBalance += _transactionAmount;
+
+        uint256 roundUpAmount = msg.value;
+
+        userData[msg.sender].totalDeposited += roundUpAmount;
+        userData[msg.sender].savingsBalance += roundUpAmount;
         userData[msg.sender].lastDepositTime = block.timestamp;
-        
-        totalSavings += totalDeposit;
-        totalRoundUps[msg.sender] += remainder;
+
+        totalSavings += roundUpAmount;
+        totalRoundUps[msg.sender] += roundUpAmount;
         actionCount++;
-        
-        emit SavingsDeposited(msg.sender, totalDeposit, remainder);
-        _notify(msg.sender, string(abi.encodePacked("Round-up: saved ", remainder / 1e6, " cUSD extra")), NotificationType.RoundUp);
+
+        emit SavingsDeposited(msg.sender, roundUpAmount, roundUpAmount);
+        _notify(msg.sender, "Round-up saved in CELO.", NotificationType.RoundUp);
     }
 
-    /// @notice Withdraw savings
+    /// @notice Withdraw savings in native CELO
     function withdrawSavings(uint256 _amount) external nonReentrant onlyRegistered(msg.sender) {
         if (_amount == 0) revert InvalidAmount();
-        if (_amount > userData[msg.sender].roundUpBalance) revert InsufficientBalance();
-        
-        userData[msg.sender].roundUpBalance -= _amount;
+        if (_amount > userData[msg.sender].savingsBalance) revert InsufficientBalance();
+
+        userData[msg.sender].savingsBalance -= _amount;
         userData[msg.sender].totalWithdrawn += _amount;
-        
         totalSavings -= _amount;
-        
-        cUSD.safeTransfer(msg.sender, _amount);
-        
+
         actionCount++;
-        
+
+        (bool ok, ) = payable(msg.sender).call{value: _amount}("");
+        if (!ok) revert TransferFailed();
+
         emit SavingsWithdrawn(msg.sender, _amount);
-        _notify(msg.sender, string(abi.encodePacked("Withdrew ", _amount / 1e6, " cUSD")), NotificationType.Withdrawal);
+        _notify(msg.sender, "CELO withdrawn from savings.", NotificationType.Withdrawal);
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // BILL MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Create recurring bill
     function createBill(
         bytes32 _billId,
         address _recipient,
@@ -290,11 +256,8 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     ) external nonReentrant onlyRegistered(msg.sender) {
         if (_recipient == address(0)) revert ZeroAddress();
         if (_amount == 0) revert InvalidAmount();
-        
-        _registerUser(msg.sender);
-        
         if (bills[_billId].isActive) revert BillAlreadyExists();
-        
+
         bills[_billId] = Bill({
             recipient: _recipient,
             amount: _amount,
@@ -305,131 +268,44 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
             createdBy: msg.sender,
             description: _description
         });
-        
+
         userBillIds[msg.sender].push(_billId);
-        
         actionCount++;
-        
+
         emit BillCreated(_billId, msg.sender, _amount, _frequencySeconds);
         _notify(msg.sender, string(abi.encodePacked("Bill created: ", _description)), NotificationType.BillCreated);
     }
 
-    /// @notice Execute bill payment (can be called by anyone - automated keeper)
     function executeBill(bytes32 _billId) external nonReentrant onlyActive {
         Bill storage bill = bills[_billId];
-        
         if (!bill.isActive) revert BillNotFound();
         if (block.timestamp < bill.nextPaymentTime) revert PaymentNotDue();
-        
-        uint256 balance = cUSD.balanceOf(address(this));
-        if (balance < bill.amount) {
-            // Try to harvest yield first
-            _harvestYield();
-            balance = cUSD.balanceOf(address(this));
-            if (balance < bill.amount) revert InsufficientBalance();
-        }
-        
-        // Transfer to recipient
-        cUSD.safeTransfer(bill.recipient, bill.amount);
-        
+        if (address(this).balance < bill.amount) revert InsufficientBalance();
+
         bill.isPaid = true;
         bill.nextPaymentTime = block.timestamp + bill.frequency;
-        
+
         totalBillsPaid++;
         actionCount++;
-        
+
+        (bool ok, ) = payable(bill.recipient).call{value: bill.amount}("");
+        if (!ok) revert TransferFailed();
+
         emit BillExecuted(_billId, bill.createdBy, bill.amount);
-        _notify(bill.createdBy, string(abi.encodePacked("Bill paid: ", bill.amount / 1e6, " cUSD sent")), NotificationType.BillPaid);
+        _notify(bill.createdBy, "Bill payment sent in CELO.", NotificationType.BillPaid);
     }
 
-    /// @notice Auto-execute all due bills (for keeper/automation)
-    function autoExecuteDueBills() external onlyActive {
-        bytes32[] memory allBillIds = _getAllActiveBillIds();
-        
-        for (uint i = 0; i < allBillIds.length; i++) {
-            Bill storage bill = bills[allBillIds[i]];
-            if (bill.isActive && block.timestamp >= bill.nextPaymentTime) {
-                try this.executeBill(allBillIds[i]) {
-                    // Success - bill executed
-                } catch {
-                    // Skip failed bills
-                }
-            }
-        }
-    }
-
-    /// @notice Cancel bill
     function cancelBill(bytes32 _billId) external {
         Bill storage bill = bills[_billId];
         if (bill.createdBy != msg.sender && owner() != msg.sender) revert NotAuthorized();
-        
         bill.isActive = false;
-        
         emit BillCancelled(_billId);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // YIELD FARMING
+    // ACCOUNT ABSTRACTION (4337)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Enable yield farming
-    function setYieldVault(address _vault) external onlyOwner {
-        if (_vault == address(0)) revert ZeroAddress();
-        yieldVault = _vault;
-        yieldEnabled = true;
-    }
-
-    /// @notice Deposit to yield (stake in DeFi)
-    function depositToYield(uint256 _amount) external nonReentrant onlyRegistered(msg.sender) {
-        if (!yieldEnabled || yieldVault == address(0)) revert AgentNotActive();
-        
-        cUSD.safeTransferFrom(msg.sender, yieldVault, _amount);
-        
-        // In production, calculate yTokens based on exchange rate
-        uint256 yTokens = _amount; // Simplified - 1:1 for now
-        userData[msg.sender].yTokens += yTokens;
-        
-        actionCount++;
-    }
-
-    /// @notice Withdraw from yield
-    function withdrawFromYield(uint256 _yTokens) external nonReentrant {
-        uint256 userYTokens = userData[msg.sender].yTokens;
-        if (_yTokens > userYTokens) revert InsufficientBalance();
-        
-        // Calculate yield earned
-        uint256 yieldEarned = (_yTokens * yieldRate * (block.timestamp - userData[msg.sender].lastDepositTime)) 
-            / (365 days * 10000);
-        
-        userData[msg.sender].yTokens -= _yTokens;
-        
-        // Transfer principal + yield
-        cUSD.safeTransferFrom(yieldVault, msg.sender, _yTokens + yieldEarned);
-        
-        actionCount++;
-    }
-
-    /// @notice Harvest yield (claim rewards)
-    function _harvestYield() internal {
-        // In production: call harvest on yield protocol
-        // Simplified: just collect any airdrops/bounties
-    }
-
-    /// @notice Claim accumulated rewards
-    function claimRewards() external nonReentrant onlyRegistered(msg.sender) {
-        uint256 rewards = rewardPoints[msg.sender];
-        if (rewards > 0) {
-            rewardPoints[msg.sender] = 0;
-            // Send rewards (could be native token or reward token)
-            emit RewardsClaimed(msg.sender, rewards);
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // ACCOUNT ABSTRACTION (4337 + Gasless)
-    // ═══════════════════════════════════════════════════════════════════
-
-    /// @notice Execute transaction with 4337-style nonce (gasless)
     function executeTransaction(
         address _to,
         uint256 _value,
@@ -438,141 +314,45 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         bytes calldata _signature
     ) external nonReentrant {
         bytes32 txHash = keccak256(abi.encode(_to, _value, _data, _nonce, block.chainid));
-        
         if (executedTransactions[txHash]) revert BillAlreadyExists();
         if (_nonce != nonce[msg.sender]) revert InvalidAmount();
-        
-        // Verify signature using ecrecover
+
         require(_signature.length == 65, "Invalid signature length");
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", txHash));
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
+        bytes32 r; bytes32 s; uint8 v;
         assembly {
             r := calldataload(_signature.offset)
             s := calldataload(add(_signature.offset, 32))
             v := byte(0, calldataload(add(_signature.offset, 64)))
         }
-        address signer = ecrecover(ethSignedHash, v, r, s);
-        require(signer == msg.sender, "Invalid signature");
-        
+        require(ecrecover(ethSignedHash, v, r, s) == msg.sender, "Invalid signature");
+
         executedTransactions[txHash] = true;
         nonce[msg.sender]++;
-        
+
         (bool success, ) = _to.call{value: _value}(_data);
         require(success, "Transaction failed");
-        
+
         actionCount++;
     }
 
-    /// @notice Execute gasless transaction - agent pays gas from user's savings
-    function executeGasless(
-        address _to,
-        uint256 _value,
-        bytes calldata _data,
-        uint256 _gasLimit
-    ) external nonReentrant onlyRegistered(msg.sender) {
-        if (_to == address(0)) revert ZeroAddress();
-        if (_value == 0 && _data.length == 0) revert InvalidAmount();
-        
-        // Estimate gas and deduct from user's roundUpBalance or savings
-        uint256 gasUsed = gasleft();
-        uint256 gasPrice = tx.gasprice;
-        uint256 gasCost = gasUsed * gasPrice;
-        
-        // Deduct gas cost from user's savings
-        UserData storage user = userData[msg.sender];
-        if (user.roundUpBalance < gasCost) revert InsufficientBalance();
-        
-        user.roundUpBalance -= gasCost;
-        
-        // Execute the transaction
-        (bool success, ) = _to.call{value: _value}(_data);
-        if (!success) revert YieldTransferFailed();
-        
-        actionCount++;
-        lastActionTimestamp = block.timestamp;
-        
-        emit FundsReceived(msg.sender, _value);
-    }
-
-    /// @notice Set session key for automated transactions (for AI agent)
     function setSessionKey(address _sessionKey, bool _enabled) external onlyRegistered(msg.sender) {
         sessionKeys[msg.sender][_sessionKey] = _enabled;
         emit SessionKeySet(msg.sender, _sessionKey, _enabled);
     }
 
-    /// @notice Execute via session key (agent can act on behalf of user)
-    function executeWithSessionKey(
-        address _to,
-        uint256 _value,
-        bytes calldata _data,
-        address _sessionKey
-    ) external nonReentrant onlyRegistered(msg.sender) {
-        if (!sessionKeys[msg.sender][_sessionKey]) revert NotAuthorized();
-        
-        (bool success, ) = _to.call{value: _value}(_data);
-        if (!success) revert YieldTransferFailed();
-        
-        actionCount++;
-    }
-
-    /// @notice Add second owner (multi-sig)
-    function addSecondOwner(address _newOwner) external onlyRegistered(msg.sender) {
-        if (_newOwner == address(0)) revert ZeroAddress();
-        if (secondOwners[msg.sender] != address(0)) revert AlreadyRegistered();
-        secondOwners[msg.sender] = _newOwner;
-        emit SecondOwnerAdded(msg.sender, _newOwner);
-    }
-
-    /// @notice Confirm transaction with second owner
-    function confirmWithSecondOwner(bytes32 _txHash) external {
-        if (secondOwners[msg.sender] != msg.sender && secondOwners[msg.sender] != tx.origin) revert NotAuthorized();
-        if (confirmedTransactions[_txHash][msg.sender]) revert AlreadyRegistered();
-        
-        confirmedTransactions[_txHash][msg.sender] = true;
-        confirmationCount[_txHash]++;
-        
-        if (confirmationCount[_txHash] >= 2) {
-            emit TransactionReadyForExecution(_txHash);
-        }
-    }
-
-    /// @notice Get nonce for account abstraction
     function getNonce(address _user) external view returns (uint256) {
         return nonce[_user];
     }
 
-    /// @notice Check if session key is valid
     function isSessionKeyValid(address _user, address _key) external view returns (bool) {
         return sessionKeys[_user][_key];
     }
-
-    /// @notice Get second owner for user
-    function getSecondOwner(address _user) external view returns (address) {
-        return secondOwners[_user];
-    }
-
-    // Session keys for automated transactions
-    mapping(address => mapping(address => bool)) public sessionKeys;
-    
-    // Multi-sig: second owners
-    mapping(address => address) public secondOwners;
-    
-    // Multi-sig: transaction confirmations
-    mapping(bytes32 => mapping(address => bool)) public confirmedTransactions;
-    mapping(bytes32 => uint256) public confirmationCount;
-
-    // Events for AA
-    event SessionKeySet(address indexed user, address indexed sessionKey, bool enabled);
-    event SecondOwnerAdded(address indexed user, address indexed newOwner);
-    event TransactionReadyForExecution(bytes32 indexed txHash);
 
     // ═══════════════════════════════════════════════════════════════════
     // NOTIFICATIONS
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Internal notify function
     function _notify(address _user, string memory _message, NotificationType _type) internal {
         notifications[_user].push(Notification({
             user: _user,
@@ -584,58 +364,31 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         notificationCount++;
     }
 
-    /// @notice Send notification (for keepers/oracles)
-    function notifyUser(address _user, string calldata _message) external {
-        // Only authorized callers (keeper, owner, or self)
-        if (msg.sender != owner() && msg.sender != address(this)) revert NotAuthorized();
-        _notify(_user, _message, NotificationType.Alert);
-    }
-
-    /// @notice Mark notification as read
     function markNotificationRead(uint256 _index) external {
         if (notifications[msg.sender].length > _index) {
             notifications[msg.sender][_index].read = true;
         }
     }
 
-    /// @notice Get user notifications
     function getNotifications(address _user) external view returns (Notification[] memory) {
         return notifications[_user];
     }
 
-    /// @notice Get unread notification count
     function getUnreadCount(address _user) external view returns (uint256 count) {
-        Notification[] storage userNotifs = notifications[_user];
-        for (uint i = 0; i < userNotifs.length; i++) {
-            if (!userNotifs[i].read) count++;
+        for (uint i = 0; i < notifications[_user].length; i++) {
+            if (!notifications[_user][i].read) count++;
         }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // CELO IDENTITY (ODIS)
-    // ═══════════════════════════════════════════════════════════════════
-
-    /// @notice Verify CeloID (ODIS integration placeholder)
-    function verifyCeloIdentity(address _user, bytes calldata _credential) external returns (bool) {
-        // In production: integrate with Celo's ODIS for identity verification
-        // For now: just set as verified if they have some deposits
-        if (userData[_user].totalDeposited > 1000e6) { // > $1000
-            return true;
-        }
-        return false;
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // ROUND-UP SETTINGS
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Set round-up threshold
     function setRoundUpThreshold(uint256 _threshold) external {
         if (_threshold == 0) revert InvalidAmount();
         roundUpSettings[msg.sender] = _threshold;
     }
 
-    /// @notice Get user's round-up balance
     function getUserRoundUpBalance(address _user) external view returns (uint256) {
         return totalRoundUps[_user];
     }
@@ -643,10 +396,6 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
     // ═══════════════════════════════════════════════════════════════════
     // ERC-8004 IDENTITY
     // ═══════════════════════════════════════════════════════════════════
-
-    function _registerERC8004() internal {
-        // ERC-8004 registration
-    }
 
     function getAgentIdentity() external view returns (
         bytes32 _agentId,
@@ -656,14 +405,7 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         address _chain,
         uint256 _capabilities
     ) {
-        return (
-            agentId,
-            agentName,
-            agentVersion,
-            reputationScore,
-            address(this),
-            0x1F | 0x2 | 0x4 | 0x8 // savings + bills + identity + payments
-        );
+        return (agentId, agentName, agentVersion, reputationScore, address(this), 0x1F);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -678,13 +420,7 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         bool isRegistered
     ) {
         UserData storage data = userData[_user];
-        return (
-            data.totalDeposited,
-            data.totalWithdrawn,
-            data.roundUpBalance,
-            data.lastDepositTime,
-            data.isRegistered
-        );
+        return (data.totalDeposited, data.totalWithdrawn, data.savingsBalance, data.lastDepositTime, data.isRegistered);
     }
 
     function getBillDetails(bytes32 _billId) external view returns (
@@ -696,14 +432,7 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         bool billPaid
     ) {
         Bill storage bill = bills[_billId];
-        return (
-            bill.recipient,
-            bill.amount,
-            bill.frequency,
-            bill.nextPaymentTime,
-            bill.isActive,
-            bill.isPaid
-        );
+        return (bill.recipient, bill.amount, bill.frequency, bill.nextPaymentTime, bill.isActive, bill.isPaid);
     }
 
     function getUserBillIds(address _user) external view returns (bytes32[] memory) {
@@ -720,60 +449,23 @@ contract AutoPocketAgentV2 is Ownable(msg.sender), ReentrancyGuard, Pausable {
         return (totalSavings, totalBillsPaid, actionCount, isActive, reputationScore);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // ADMIN FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /// @notice Emergency withdraw
-    function withdrawAll() external onlyOwner nonReentrant {
-        uint256 balance = cUSD.balanceOf(address(this));
-        cUSD.safeTransfer(msg.sender, balance);
-    }
-
-    /// @notice Withdraw any token
-    function withdrawToken(address _token, uint256 _amount) external onlyOwner {
-        IERC20(_token).safeTransfer(msg.sender, _amount);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════════
-
-    function _getAllActiveBillIds() internal view returns (bytes32[] memory) {
-        // Simplified - in production use a separate mapping
-        bytes32[] memory result = new bytes32[](10);
-        uint256 count = 0;
-        
-        // This is a placeholder - would need indexed mapping for production
-        return result;
-    }
-
-    /// @notice Get reward points
     function getRewardPoints(address _user) external view returns (uint256) {
         return rewardPoints[_user];
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // EVENTS
+    // ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════
 
-    event AgentInitialized(bytes32 indexed agentId, string name, string version);
-    event UserRegistered(address indexed user);
-    event SavingsDeposited(address indexed user, uint256 amount, uint256 roundUp);
-    event SavingsWithdrawn(address indexed user, uint256 amount);
-    event BillCreated(bytes32 indexed billId, address indexed user, uint256 amount, uint256 frequency);
-    event BillExecuted(bytes32 indexed billId, address indexed user, uint256 amount);
-    event BillCancelled(bytes32 indexed billId);
-    event RewardsClaimed(address indexed user, uint256 amount);
-    event AgentActivated(bool active);
-    event FundsReceived(address indexed from, uint256 amount);
-    event NotificationSent(address indexed user, string message, uint256 timestamp);
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
+
+    function withdrawAll() external onlyOwner nonReentrant {
+        (bool ok, ) = payable(msg.sender).call{value: address(this).balance}("");
+        if (!ok) revert TransferFailed();
+    }
+
+    function withdrawToken(address _token, uint256 _amount) external onlyOwner {
+        IERC20(_token).transfer(msg.sender, _amount);
+    }
 }

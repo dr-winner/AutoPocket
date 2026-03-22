@@ -38,9 +38,9 @@ import {
 const AGENT_V2_ABI = [
   // Core
   { inputs: [], name: 'registerUser', outputs: [], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ name: '_amount', type: 'uint256' }], name: 'depositSavings', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'depositSavings', outputs: [], stateMutability: 'payable', type: 'function' },
   { inputs: [{ name: '_amount', type: 'uint256' }], name: 'withdrawSavings', outputs: [], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ name: '_transactionAmount', type: 'uint256' }], name: 'depositWithRoundUp', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: '_transactionAmount', type: 'uint256' }], name: 'depositWithRoundUp', outputs: [], stateMutability: 'payable', type: 'function' },
   
   // Bills
   { inputs: [
@@ -106,22 +106,11 @@ const AGENT_V2_ABI = [
   { inputs: [{ name: '_user', type: 'address' }], name: 'getSecondOwner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
 ];
 
-// V2 Contract - deployed to Celo Sepolia
-const AGENT_V2_ADDRESS = '0xe5dc0d6E6114b1Fe2b7D9ffCbA04716Af6981889' as `0x${string}`;
-// Fallback to V1 for now
+// V2 Contract - native CELO, deployed to Celo Testnet
+const AGENT_V2_ADDRESS = '0x54Eb2F4C758b98A5ecfb8Ef07234028CaaBCdDaB' as `0x${string}`;
 const AGENT_V1_ADDRESS = '0x6eeA600d2AbC11D3fF82a6732b1042Eec52A111d' as `0x${string}`;
 
-// cUSD on Celo Sepolia
-const CUSD_ADDRESS = '0xEF4d55D6dE8e8d73232827Cd1e9b2F2dBb45bC80' as `0x${string}`;
-
-const CUSD_DECIMALS = 18;
-
-// Minimal ERC20 ABI for approve + allowance + balanceOf
-const ERC20_ABI = [
-  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], name: 'allowance', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
-  { inputs: [{ name: 'account', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
-] as const;
+const CELO_DECIMALS = 18;
 
 export default function Home() {
   const { isConnected, address, chainId } = useAccount();
@@ -166,14 +155,8 @@ export default function Home() {
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [useV2, setUseV2] = useState(true);
-  const [depositStep, setDepositStep] = useState<'idle' | 'approving' | 'depositing'>('idle');
-  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint>(BigInt(0));
-  const [pendingDepositFn, setPendingDepositFn] = useState<'depositSavings' | 'depositWithRoundUp'>('depositSavings');
-  
-  const { data: hash, writeContract: write, isPending, error: writeError, reset: resetWrite } = useWriteContract();
+  const { data: hash, writeContract: write, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-  const { data: approveHash, writeContract: writeApprove, isPending: isApprovePending, error: approveError, reset: resetApprove } = useWriteContract();
-  const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { switchChain } = useSwitchChain();
 
   // Celo Sepolia chain ID
@@ -258,20 +241,9 @@ export default function Home() {
     query: { enabled: isConnected && !!address && useV2 && isCorrectChain }
   });
 
-  // cUSD wallet balance and allowance
-  const { data: cusdWalletBalance, refetch: refetchCusdBalance } = useReadContract({
-    address: CUSD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: { enabled: isConnected && !!address && isCorrectChain },
-  });
-
-  const { data: cusdAllowance, refetch: refetchAllowance } = useReadContract({
-    address: CUSD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: 'allowance',
-    args: address ? [address, AGENT_V2_ADDRESS] : undefined,
+  // Native CELO wallet balance
+  const { data: celoWalletBalance, refetch: refetchCeloBalance } = useBalance({
+    address: address,
     query: { enabled: isConnected && !!address && isCorrectChain },
   });
 
@@ -283,34 +255,6 @@ export default function Home() {
     }
   }, [userSavings]);
 
-  // When approve confirms, auto-trigger the deposit
-  useEffect(() => {
-    if (isApproveSuccess && depositStep === 'approving' && pendingDepositAmount > BigInt(0)) {
-      setDepositStep('depositing');
-      setShowSuccess('✅ Approved! Submitting deposit...');
-      setLastTxType('deposit');
-      write({
-        address: agentAddress,
-        abi: AGENT_V2_ABI,
-        functionName: pendingDepositFn,
-        args: [pendingDepositAmount],
-      });
-    }
-  }, [isApproveSuccess]);
-
-  // Handle approve errors
-  useEffect(() => {
-    if (approveError) {
-      const errStr = String(approveError);
-      if (errStr.includes('User rejected') || errStr.includes('rejected') || errStr.includes('denied')) {
-        setShowSuccess('Transaction cancelled');
-      } else {
-        setShowSuccess('❌ Approval failed: ' + errStr.slice(0, 60));
-      }
-      setDepositStep('idle');
-      setTimeout(() => setShowSuccess(null), 5000);
-    }
-  }, [approveError]);
 
   // Track last tx type for history
   const [lastTxType, setLastTxType] = useState<string>('');
@@ -319,21 +263,17 @@ export default function Home() {
   useEffect(() => {
     if (isSuccess && hash) {
       setShowSuccess('✅ Transaction confirmed!');
-      setDepositStep('idle');
-      setPendingDepositAmount(BigInt(0));
       if (lastTxType) {
         const now = new Date();
-        const timeStr = now.toLocaleString();
         setTxHistory(prev => [{
           type: lastTxType,
-          amount: lastTxType === 'deposit' || lastTxType === 'withdraw' ? 'cUSD' : 'cUSD',
+          amount: 'CELO',
           hash: hash,
-          time: timeStr
+          time: now.toLocaleString()
         }, ...prev].slice(0, 50));
       }
       refetchUserSavings();
-      refetchCusdBalance();
-      refetchAllowance();
+      refetchCeloBalance();
       setTimeout(() => setShowSuccess(null), 4000);
     }
   }, [isSuccess, hash, lastTxType]);
@@ -343,15 +283,10 @@ export default function Home() {
     if (writeError) {
       const errStr = String(writeError);
       console.log('[WRITE ERROR DETAIL]', errStr);
-      setDepositStep('idle');
-      setPendingDepositAmount(BigInt(0));
-      
       if (errStr.includes('User rejected') || errStr.includes('rejected') || errStr.includes('denied')) {
         setShowSuccess('Transaction cancelled');
       } else if (errStr.includes('insufficient funds')) {
         setShowSuccess('❌ Insufficient CELO for gas fees');
-      } else if (errStr.includes('transfer value exceeded') || errStr.includes('ERC20')) {
-        setShowSuccess('❌ Insufficient cUSD balance.');
       } else if (errStr.includes('nonce') || errStr.includes('Nonce')) {
         setShowSuccess('⚠️ Nonce error. Try again.');
       } else if (errStr.includes('gas')) {
@@ -359,7 +294,7 @@ export default function Home() {
       } else if (errStr.includes('Requested')) {
         setShowSuccess('⚠️ Request cancelled or failed. Try again.');
       } else if (errStr.includes('ContractFunctionExecutionError') || errStr.includes('isReverted') || errStr.includes('execution reverted')) {
-        setShowSuccess('❌ Contract reverted. Check your cUSD balance and try again.');
+        setShowSuccess('❌ Contract reverted. Check your CELO balance and try again.');
       } else {
         setShowSuccess('❌ Failed: ' + errStr.slice(0, 60));
       }
@@ -376,38 +311,10 @@ export default function Home() {
     }
   }, [isConnected, chainId, isCorrectChain]);
 
-  // Format cUSD
-  const formatCUSD = (value: any) => {
-    if (!value || typeof value !== 'bigint') return '0.00';
-    try { return ethers.formatUnits(value, CUSD_DECIMALS); } catch { return '0.00'; }
-  };
-
-  // Helper: approve then call fn
-  const approveAndCall = async (amountWei: bigint, fnName: 'depositSavings' | 'depositWithRoundUp') => {
-    const allowance = (cusdAllowance as bigint) ?? BigInt(0);
-    if (allowance >= amountWei) {
-      // Already approved — go straight to deposit
-      setDepositStep('depositing');
-      setLastTxType('deposit');
-      write({
-        address: agentAddress,
-        abi: AGENT_V2_ABI,
-        functionName: fnName,
-        args: [amountWei],
-      });
-    } else {
-      // Need approval first
-      setPendingDepositAmount(amountWei);
-      setPendingDepositFn(fnName);
-      setDepositStep('approving');
-      setShowSuccess('Step 1/2: Approving cUSD spend...');
-      writeApprove({
-        address: CUSD_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [AGENT_V2_ADDRESS, amountWei],
-      });
-    }
+  // Format CELO
+  const formatCELO = (value: any) => {
+    if (!value || typeof value !== 'bigint') return '0.0000';
+    try { return parseFloat(ethers.formatUnits(value, CELO_DECIMALS)).toFixed(4); } catch { return '0.0000'; }
   };
 
   // Actions
@@ -419,24 +326,27 @@ export default function Home() {
       return;
     }
 
-    // Check wallet cUSD balance
-    const walletBal = (cusdWalletBalance as bigint) ?? BigInt(0);
-    const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
+    const amountWei = ethers.parseUnits(depositAmount, CELO_DECIMALS);
+    const walletBal = celoWalletBalance?.value ?? BigInt(0);
     if (walletBal < amountWei) {
-      setShowSuccess('❌ No cUSD in wallet. Get testnet cUSD at app.mento.org');
+      setShowSuccess('❌ Insufficient CELO balance');
       setTimeout(() => setShowSuccess(null), 4000);
       return;
     }
-    
+
     const isOk = await ensureCorrectChain();
     if (!isOk) return;
-    
+
     try {
-      await approveAndCall(amountWei, 'depositSavings');
-    } catch (err) { 
-      console.error('[DEPOSIT ERROR]', err);
-      setDepositStep('idle');
-    }
+      setLastTxType('deposit');
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: 'depositSavings',
+        args: [],
+        value: amountWei,
+      });
+    } catch (err) { console.error('[DEPOSIT ERROR]', err); }
   };
 
   const depositWithRoundUp = async () => {
@@ -451,8 +361,15 @@ export default function Home() {
     if (!isOk) return;
 
     try {
-      const amountWei = ethers.parseUnits(depositAmount, CUSD_DECIMALS);
-      await approveAndCall(amountWei, 'depositWithRoundUp');
+      const amountWei = ethers.parseUnits(depositAmount, CELO_DECIMALS);
+      setLastTxType('round-up');
+      write({
+        address: agentAddress,
+        abi: AGENT_V2_ABI,
+        functionName: 'depositWithRoundUp',
+        args: [amountWei],
+        value: amountWei,
+      });
     } catch (err) { console.error(err); }
   };
 
@@ -466,7 +383,7 @@ export default function Home() {
 
     // Check contract savings balance
     const savingsBal = (userBalance as bigint) ?? BigInt(0);
-    const amountWei = ethers.parseUnits(withdrawAmount, CUSD_DECIMALS);
+    const amountWei = ethers.parseUnits(withdrawAmount, CELO_DECIMALS);
     if (amountWei > savingsBal) {
       setShowSuccess('❌ Amount exceeds your savings balance');
       setTimeout(() => setShowSuccess(null), 4000);
@@ -539,7 +456,7 @@ export default function Home() {
     }
     try {
       const billId = ethers.id('bill_' + Date.now());
-      const amountWei = ethers.parseUnits(billAmount, CUSD_DECIMALS);
+      const amountWei = ethers.parseUnits(billAmount, CELO_DECIMALS);
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -586,7 +503,7 @@ export default function Home() {
   const setRoundUp = async () => {
     if (!roundUpThreshold) return;
     try {
-      const threshold = ethers.parseUnits(roundUpThreshold, CUSD_DECIMALS);
+      const threshold = ethers.parseUnits(roundUpThreshold, CELO_DECIMALS);
       write({
         address: agentAddress,
         abi: AGENT_V2_ABI,
@@ -876,7 +793,7 @@ export default function Home() {
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 text-center">
                   <div className="p-2">
-                    <p className="text-xl sm:text-3xl font-bold gradient-text">${formatCUSD(totalSavings)}</p>
+                    <p className="text-xl sm:text-3xl font-bold gradient-text">{formatCELO(totalSavings)} CELO</p>
                     <p className="text-gray-400 text-xs sm:text-sm mt-1">Total Saved</p>
                   </div>
                   <div className="p-2">
@@ -962,7 +879,7 @@ export default function Home() {
                   <Wallet className="w-4 h-4 text-green-400" />
                   <span className="text-gray-400 text-xs">Balance</span>
                 </div>
-                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(userBalance)}`}</p>
+                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `${formatCELO(userBalance)} CELO`}</p>
               </div>
               
               <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
@@ -970,7 +887,7 @@ export default function Home() {
                   <TrendingUp className="w-4 h-4 text-green-400" />
                   <span className="text-gray-400 text-xs">Deposited</span>
                 </div>
-                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `$${formatCUSD(totalDeposited)}`}</p>
+                <p className="text-xl sm:text-3xl font-bold">{privacyMode ? '••••' : `${formatCELO(totalDeposited)} CELO`}</p>
               </div>
               
               <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
@@ -1070,37 +987,11 @@ export default function Home() {
               {/* Savings Tab */}
               {activeTab === 'save' && (
                 <div className="space-y-4 sm:space-y-6">
-                  {/* cUSD wallet balance info bar */}
-                  <div className="flex flex-wrap gap-3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Wallet cUSD:</span>
-                      <span className="font-bold text-white">{privacyMode ? '••••' : formatCUSD(cusdWalletBalance as any)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Approved:</span>
-                      <span className={`font-bold ${(cusdAllowance as bigint ?? BigInt(0)) > BigInt(0) ? 'text-green-400' : 'text-gray-500'}`}>
-                        {privacyMode ? '••••' : formatCUSD(cusdAllowance as any)}
-                      </span>
-                    </div>
-                    <a
-                      href="https://app.mento.org"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-yellow-400 hover:underline ml-auto"
-                    >
-                      Get testnet cUSD ↗
-                    </a>
+                  {/* CELO wallet balance */}
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5 border border-white/10 text-sm">
+                    <span className="text-gray-400">Wallet CELO:</span>
+                    <span className="font-bold text-white">{privacyMode ? '••••' : (celoWalletBalance ? `${parseFloat(celoWalletBalance.formatted).toFixed(4)} CELO` : '0.0000 CELO')}</span>
                   </div>
-
-                  {/* Two-step progress indicator */}
-                  {depositStep !== 'idle' && (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin flex-shrink-0" />
-                      <span className="text-yellow-400 text-sm font-medium">
-                        {depositStep === 'approving' ? 'Step 1/2: Approving cUSD spend — confirm in wallet...' : 'Step 2/2: Depositing — confirm in wallet...'}
-                      </span>
-                    </div>
-                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {/* Deposit */}
@@ -1111,13 +1002,13 @@ export default function Home() {
                         </div>
                         <div>
                           <h4 className="font-bold text-sm sm:text-base">Deposit</h4>
-                          <p className="text-xs sm:text-sm text-gray-400">Auto-approves cUSD then deposits</p>
+                          <p className="text-xs sm:text-sm text-gray-400">Deposit native CELO to savings</p>
                         </div>
                       </div>
 
                       <input
                         type="number"
-                        placeholder="Amount (cUSD)"
+                        placeholder="Amount (CELO)"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
                         className="w-full px-4 py-3 sm:py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-base"
@@ -1126,17 +1017,17 @@ export default function Home() {
                       <div className="flex gap-2">
                         <button
                           onClick={deposit}
-                          disabled={isPending || isApprovePending || isApproveConfirming || isConfirming || !depositAmount || depositStep !== 'idle'}
+                          disabled={isPending || isConfirming || !depositAmount}
                           className="flex-1 py-3 sm:py-4 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-black font-bold text-sm sm:text-base transition-colors"
                         >
-                          {depositStep === 'approving' ? '1/2 Approving...' : depositStep === 'depositing' ? '2/2 Depositing...' : isConfirming ? 'Confirming...' : 'Deposit'}
+                          {isPending || isConfirming ? 'Confirming...' : 'Deposit'}
                         </button>
                         <button
                           onClick={depositWithRoundUp}
-                          disabled={isPending || isApprovePending || isApproveConfirming || isConfirming || !depositAmount || depositStep !== 'idle'}
+                          disabled={isPending || isConfirming || !depositAmount}
                           className="flex-1 py-3 sm:py-4 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 text-white font-bold text-sm sm:text-base transition-colors"
                         >
-                          {depositStep !== 'idle' ? '...' : 'Round-Up'}
+                          Round-Up
                         </button>
                       </div>
                     </div>
@@ -1149,13 +1040,13 @@ export default function Home() {
                         </div>
                         <div>
                           <h4 className="font-bold">Withdraw</h4>
-                          <p className="text-sm text-gray-400">Savings balance: {privacyMode ? '••••' : `$${formatCUSD(userBalance as any)}`}</p>
+                          <p className="text-sm text-gray-400">Savings balance: {privacyMode ? '••••' : `${formatCELO(userBalance as any)} CELO`}</p>
                         </div>
                       </div>
 
                       <input
                         type="number"
-                        placeholder="Amount (cUSD)"
+                        placeholder="Amount (CELO)"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500"
@@ -1163,7 +1054,7 @@ export default function Home() {
 
                       <button
                         onClick={withdraw}
-                        disabled={isPending || isConfirming || !withdrawAmount || depositStep !== 'idle'}
+                        disabled={isPending || isConfirming || !withdrawAmount}
                         className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold transition-colors"
                       >
                         {isPending && lastTxType === 'withdraw' ? 'Confirming...' : 'Withdraw'}
@@ -1175,13 +1066,13 @@ export default function Home() {
                   <div className="pt-4 border-t border-white/10">
                     <p className="text-sm text-gray-400 mb-3">Quick amounts</p>
                     <div className="flex flex-wrap gap-2">
-                      {[5, 10, 25, 50, 100].map(a => (
+                      {[0.1, 0.5, 1, 5, 10].map(a => (
                         <button
                           key={a}
                           onClick={() => setDepositAmount(a.toString())}
                           className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm"
                         >
-                          ${a}
+                          {a} CELO
                         </button>
                       ))}
                     </div>
@@ -1213,7 +1104,7 @@ export default function Home() {
                       />
                       <input
                         type="number"
-                        placeholder="Amount (cUSD)"
+                        placeholder="Amount (CELO)"
                         value={billAmount}
                         onChange={(e) => setBillAmount(e.target.value)}
                         className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500"
@@ -1563,7 +1454,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto text-center text-gray-500">
           <p>🤖 AutoPocket v3.0 - Autonomous Financial Agent</p>
           <p className="text-sm mt-2">Celo Testnet • ERC-8004 • x402 • 4337</p>
-          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — get testnet cUSD at app.mento.org</p>
+          <p className="text-xs mt-1 text-yellow-500/60">⚠️ Testnet only — uses native CELO</p>
         </div>
       </footer>
     </main>
